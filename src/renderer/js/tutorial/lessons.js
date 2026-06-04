@@ -332,4 +332,35 @@ export const LESSONS = [
       },
     ],
   },
+
+  {
+    id: 'onpc',
+    title: { ko: '6. 실전 1:1 — grandMA3 onPC', en: '6. Go pro 1:1 — grandMA3 onPC' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: '이 시뮬레이터의 위치', en: 'Where this simulator fits' },
+        body: {
+          ko: '이 앱은 핵심 개념을 한국어로 빠르게 익히는 학습 도구입니다.\n실제 콘솔과 화면·기능·문법·쇼파일이 100% 동일한 1:1 연습은 MA Lighting 공식 무료 프로그램 grandMA3 onPC 로 합니다.',
+          en: 'This app teaches core concepts quickly in Korean.\nFor true 1:1 practice (identical screens/features/syntax/showfile) use MA Lighting’s free grandMA3 onPC.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: 'onPC 설치하기', en: 'Install onPC' },
+        body: {
+          ko: 'malighting.com → Download 에서 grandMA3 onPC 를 받아 설치하세요(Windows/macOS, 무료). 가능하면 현장 콘솔과 같은 버전을 사용합니다.\n[Tips] 탭의 "grandMA3 onPC 로 실전 1:1 연습"에 링크가 있습니다.',
+          en: 'Get grandMA3 onPC from malighting.com → Download (Windows/macOS, free). Prefer the same version as the venue console.\nLinks are in the [Tips] tab.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '같은 명령으로 연습', en: 'Practise with the same commands' },
+        body: {
+          ko: '여기서 배운 어순이 onPC 에서 그대로 통합니다:\n  Fixture 1 Thru 10 At Full  →  Please\n  Store Cue 1  /  Go  /  Off\n온PC 커맨드라인에 똑같이 입력해 보세요. 손에 익으면 커맨드윙/페이더윙이나 MIDI 로 하드웨어 감각까지 더합니다.',
+          en: 'The same word order works in onPC:\n  Fixture 1 Thru 10 At Full → Please\n  Store Cue 1 / Go / Off\nType them into onPC’s command line. Then add a command/fader wing or MIDI for hardware feel.',
+        },
+      },
+    ],
+  },
 ];

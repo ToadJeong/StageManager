@@ -23,8 +23,8 @@ const PLAYBACKS = Array.from({ length: 15 }, (_, i) => 201 + i);
 //  action: ins=커맨드라인 삽입 / run / clear / go / goback / off / highlight / home / na(미구현)
 const FN_KEYS = [
   ['Setup', 'fn', 'na'], ['Backup', 'fn', 'na'], ['Menu', 'fn', 'na'], ['Esc', 'fn', 'na'],
-  ['Store', 'data', 'ins'], ['Update', 'fn', 'na'], ['Edit', 'fn', 'na'], ['Delete', 'data', 'ins'],
-  ['Copy', 'fn', 'na'], ['Move', 'fn', 'na'], ['Label', 'fn', 'na'], ['Oops', 'fn', 'na'],
+  ['Store', 'data', 'ins'], ['Update', 'fn', 'update'], ['Edit', 'fn', 'na'], ['Delete', 'data', 'ins'],
+  ['Copy', 'fn', 'na'], ['Move', 'fn', 'na'], ['Label', 'fn', 'na'], ['Oops', 'special', 'oops'],
   ['Fixture', 'data', 'ins'], ['Group', 'data', 'ins'], ['Sequ', 'data', 'na'], ['Preset', 'data', 'na'],
   ['Cue', 'data', 'ins'], ['Exec', 'data', 'na'], ['Page', 'data', 'na'], ['Macro', 'data', 'na'],
   ['Goto', 'transport', 'na'], ['Select', 'fn', 'na'], ['Align', 'fn', 'na'], ['Time', 'fn', 'na'],
@@ -218,6 +218,16 @@ export class ConsoleView {
       case 'highlight':
         for (const id of this.show.selection) if (getAttrDef(this.show.getFixture(id).type, 'Dimmer')) this.show.setProgrammerAttr('Dimmer', 100, [id]);
         break;
+      case 'oops':
+        toast(this.show.undo() ? { ko: 'Oops — 되돌림', en: 'Oops — undone' } : { ko: '되돌릴 동작 없음', en: 'Nothing to undo' });
+        break;
+      case 'update': {
+        const r = this.show.updateActiveCue();
+        toast(r.ok ? { ko: `Cue ${r.cueNo} 업데이트됨`, en: `Updated Cue ${r.cueNo}` }
+          : r.empty ? { ko: '프로그래머가 비어있음', en: 'Programmer empty' }
+            : { ko: '업데이트할 큐 없음', en: 'No cue to update' }, r.ok ? 'info' : 'err');
+        break;
+      }
       case 'na':
         toast({ ko: `[${label}] 키 — 이 학습 버전에선 미구현 (개념은 Tips/Glossary 참고)`, en: `[${label}] — not implemented in this learning build (see Tips/Glossary)` });
         break;
@@ -249,9 +259,17 @@ export class ConsoleView {
     const pbinfo = this.el.querySelector('#con-pbinfo');
     if (pbinfo) {
       const seq = this.show.sequences.get(this.show.selectedSequenceId);
-      const cues = seq ? seq.cues.map((c) => `Q${c.no}`).join(' ') : '';
-      const live = [...this.show.executors.values()].filter((e) => e.on).map((e) => `Ex${e.buttonNo}`).join(' ') || tt({ ko: '재생 없음', en: 'idle' });
-      pbinfo.innerHTML = `${bi('시퀀스', 'Seq')} ${this.show.selectedSequenceId}: ${cues || tt({ ko: '큐 없음', en: 'no cues' })}<br>${bi('재생 중', 'Running')}: ${live}`;
+      // 이 시퀀스를 재생 중인 익스큐터의 활성 큐 인덱스
+      let activeIdx = -1;
+      for (const ex of this.show.executors.values()) {
+        if (ex.on && ex.sequenceId === this.show.selectedSequenceId && ex.cueIndex >= 0) { activeIdx = ex.cueIndex; break; }
+      }
+      const head = `${bi('시퀀스', 'Sequence')} ${this.show.selectedSequenceId}`;
+      let rows;
+      if (!seq || !seq.cues.length) rows = `<div class="seq-empty">${tt({ ko: '큐 없음 — Store Cue 1', en: 'no cues — Store Cue 1' })}</div>`;
+      else rows = seq.cues.map((c, i) =>
+        `<div class="seq-cue ${i === activeIdx ? 'active' : ''}"><span>Q${c.no}</span><span class="seq-name">${c.name || ''}</span><span class="seq-fade">${c.fade ?? 3}s</span></div>`).join('');
+      pbinfo.innerHTML = `<div class="seq-head">${head}</div><div class="seq-list">${rows}</div>`;
     }
     const gm = this.el.querySelector('#con-gm'); const gmv = this.el.querySelector('#con-gm-val');
     if (gm && document.activeElement !== gm) gm.value = this.show.grandMaster;

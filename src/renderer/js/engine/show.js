@@ -393,7 +393,7 @@ export class Show {
     };
   }
 
-  loadJSON(data) {
+  _applyData(data) {
     this.reset();
     (data.fixtures || []).forEach((f) => {
       this.fixtures.set(f.fixtureId, f);
@@ -406,8 +406,73 @@ export class Show {
     this.timecodeEvents = data.timecodeEvents || [];
     this.timecodeDuration = data.timecodeDuration || 20;
     this.grandMaster = data.grandMaster ?? 100;
+  }
+
+  loadJSON(data) {
+    this._applyData(data);
     bus.emit(EVT.SHOW_LOADED, {});
     bus.emit(EVT.PATCH_CHANGED, {});
     this._emitOutput();
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Undo (Oops) — 동작 단위 스냅샷
+  // ──────────────────────────────────────────────────────────
+
+  /** 변경 직전 상태를 되돌리기 스택에 저장(프로그래머/선택 포함). */
+  pushUndo() {
+    if (!this._undo) this._undo = [];
+    this._undo.push(JSON.stringify({
+      data: this.toJSON(),
+      programmer: [...this.programmer.entries()].map(([id, a]) => [id, { ...a }]),
+      selection: [...this.selection],
+    }));
+    if (this._undo.length > 40) this._undo.shift();
+  }
+
+  /** Oops — 직전 동작 되돌리기. (패치 위치·큐·프로그래머·선택 복원, SHOW_LOADED 없이) */
+  undo() {
+    if (!this._undo || !this._undo.length) return false;
+    const snap = JSON.parse(this._undo.pop());
+    this._applyData(snap.data);
+    this.programmer = new Map((snap.programmer || []).map(([id, a]) => [id, { ...a }]));
+    this.selection = (snap.selection || []).filter((id) => this.fixtures.has(id));
+    bus.emit(EVT.PATCH_CHANGED, {});
+    bus.emit(EVT.SELECTION_CHANGED, { selection: this.selection });
+    bus.emit(EVT.PROGRAMMER_CHANGED, {});
+    bus.emit(EVT.EXEC_CHANGED, {});
+    bus.emit(EVT.CUE_STORED, {});
+    this._emitOutput();
+    return true;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Update — 재생 중(또는 마지막) 큐에 프로그래머 병합
+  // ──────────────────────────────────────────────────────────
+
+  updateActiveCue() {
+    // 재생 중인 익스큐터의 활성 큐 우선, 없으면 선택 시퀀스의 마지막 큐
+    let target = null;
+    for (const ex of [...this.executors.values()].sort((a, b) => a.buttonNo - b.buttonNo)) {
+      if (ex.on && ex.cueIndex >= 0) {
+        const seq = this.sequences.get(ex.sequenceId);
+        const cue = seq && seq.cues[ex.cueIndex];
+        if (cue) { target = { seq, cue }; break; }
+      }
+    }
+    if (!target) {
+      const seq = this.sequences.get(this.selectedSequenceId);
+      if (seq && seq.cues.length) target = { seq, cue: seq.cues[seq.cues.length - 1] };
+    }
+    if (!target) return { ok: false };
+    if (!this.hasProgrammerValues()) return { ok: false, empty: true };
+    this.pushUndo();
+    for (const [fid, attrs] of this.programmer.entries()) {
+      if (!Object.keys(attrs).length) continue;
+      target.cue.values[fid] = { ...(target.cue.values[fid] || {}), ...attrs };
+    }
+    bus.emit(EVT.CUE_STORED, { sequenceId: target.seq.id, cueNo: target.cue.no });
+    this._emitOutput();
+    return { ok: true, cueNo: target.cue.no, seqId: target.seq.id };
   }
 }

@@ -29,6 +29,22 @@ export const TIP_SECTIONS = [
   },
 
   {
+    id: 'onpc',
+    title: { ko: 'grandMA3 onPC 로 실전 1:1 연습', en: 'Practise 1:1 with grandMA3 onPC' },
+    items: [
+      { title: { ko: 'onPC = 실제 콘솔과 동일한 소프트웨어', en: 'onPC = the same software as the real console' },
+        body: { ko: '이 시뮬레이터는 한국어 개념 학습용이고, 실제 화면·기능·문법·쇼파일이 100% 똑같은 1:1 연습은 MA Lighting 공식 무료 프로그램 grandMA3 onPC 로 합니다. 콘솔과 동일한 엔진이라 onPC 에서 만든 쇼를 실물 콘솔에 그대로 올릴 수 있습니다.', en: 'This simulator is for learning concepts in Korean; for a true 1:1 (identical screens/features/syntax/showfile) practise with MA Lighting’s free grandMA3 onPC — the very same engine as the console.' } },
+      { title: { ko: '설치', en: 'Install' },
+        body: { ko: 'malighting.com 다운로드 페이지에서 grandMA3 onPC(Windows/macOS)를 받아 설치합니다. 콘솔과 같은 버전을 쓰는 것이 좋습니다.', en: 'Download grandMA3 onPC (Windows/macOS) from malighting.com and install. Prefer the same version as your console.' } },
+      { title: { ko: '추천 학습 순서', en: 'Recommended order' },
+        body: { ko: '① 이 시뮬레이터로 패치→프로그래밍→큐→재생→타임코드 개념을 한국어로 익히기 → ② onPC 에서 동일 흐름을 영어 UI로 반복 → ③ 커맨드윙/페이더윙 또는 MIDI로 하드웨어 감각 더하기.', en: '① Learn patch→program→cue→playback→timecode here in Korean → ② repeat the same flow in onPC’s English UI → ③ add hardware feel with a command/fader wing or MIDI.' },
+        practice: { ko: '여기서 익힌 "Fixture 1 Thru 10 At Full / Store Cue 1 / Go" 를 onPC 커맨드라인에 그대로 쳐보세요 — 동일하게 동작합니다.', en: 'Type the same "Fixture 1 Thru 10 At Full / Store Cue 1 / Go" into onPC — it behaves identically.' } },
+      { title: { ko: '무료 비주얼라이저로 프리비즈', en: 'Previz with a free visualizer' },
+        body: { ko: 'onPC + MA 3D(내장) 또는 Vision/Capture 데모로 빔을 보며 연습. 이 시뮬레이터의 3D 는 가벼운 미리보기 역할.', en: 'Use onPC + built-in MA 3D, or a Vision/Capture demo, to see beams. This sim’s 3D is a lightweight preview.' } },
+    ],
+  },
+
+  {
     id: 'operating',
     title: { ko: '핵심 오퍼레이팅 팁', en: 'Core operating tips' },
     items: [
@@ -94,6 +110,7 @@ export const TIP_SECTIONS = [
     id: 'resources',
     title: { ko: '추천 학습 자료 (링크)', en: 'Recommended resources (links)' },
     links: [
+      { label: 'grandMA3 onPC 다운로드 (무료, 실전 1:1)', url: 'https://www.malighting.com/download/' },
       { label: 'grandMA3 제품/사양 (MA Lighting)', url: 'https://www.malighting.com/grandma3/' },
       { label: 'grandMA3 풀사이즈 사양', url: 'https://www.malighting.com/product/grandma3-full-size-4010500/' },
       { label: 'grandMA3 도움말 — Phasers', url: 'https://help.malighting.com/grandMA3/2.0/HTML/phaser.html' },

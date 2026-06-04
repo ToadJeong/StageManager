@@ -151,6 +151,7 @@ export class EncoderBar {
       e.preventDefault();
       this.dragging = true;
       lastY = e.clientY;
+      this.show.pushUndo(); // 드래그 제스처 1회 = Undo 1단계
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     });

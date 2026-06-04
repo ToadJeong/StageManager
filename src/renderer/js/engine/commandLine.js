@@ -140,6 +140,8 @@ export function executeCommand(show, commandStr) {
   const tokens = tokenize(commandStr);
   if (!tokens.length) return { ok: false, message: msg('빈 명령', 'Empty command') };
 
+  if (typeof show.pushUndo === 'function') show.pushUndo(); // Oops 용 스냅샷
+
   const first = tokens[0];
 
   // ── 동사형 명령 ──────────────────────────────────────────

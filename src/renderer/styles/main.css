@@ -338,6 +338,14 @@ h2 { color: var(--amber); }
 #con-io .io-row button { background: #141922; border: 1px solid #2a323d; color: #c9d3e0; border-radius: 5px; padding: 4px 9px; font-size: 11px; }
 #con-io .io-row button.on { background: var(--green); color: #06210f; border-color: var(--green); font-weight: 700; }
 #con-io .io-row input { width: 60px; background: #141922; color: #fff; border: 1px solid #2a323d; border-radius: 4px; padding: 3px 5px; }
+/* 시퀀스 시트(스크린2) */
+.seq-head { font-size: 10px; color: #7fa6d6; margin-bottom: 3px; }
+.seq-list { display: flex; flex-direction: column; gap: 1px; max-height: 56px; overflow: auto; }
+.seq-cue { display: grid; grid-template-columns: 34px 1fr auto; gap: 6px; font-size: 11px; padding: 2px 4px; border-radius: 3px; color: #c4d2e6; }
+.seq-cue.active { background: #143a6b; color: #fff; }
+.seq-cue .seq-name { color: #8aa0bd; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.seq-cue .seq-fade { color: #6f86a3; }
+.seq-empty { font-size: 11px; color: #6f7b89; }
 .io-hint { font-size: 9px; color: #6f7b89; }
 .io-log { margin-top: 4px; font-family: monospace; font-size: 9.5px; color: var(--ma3-bluetext); max-height: 34px; overflow: hidden; }
 
