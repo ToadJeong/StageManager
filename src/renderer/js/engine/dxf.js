@@ -75,10 +75,15 @@ export function parseDxf(text) {
 /** 블록/레이어 이름으로 픽스처 타입 추정. */
 export function guessType(name = '') {
   const s = name.toLowerCase();
-  if (/(mh|mover|moving|spot|wash|beam|head|robe|clay|martin|mac|viper|sharpy|pointe|rogue|quantum|aura|tetra|hes|vari)/.test(s)) return 'movingHead';
-  if (/(strob|blind|atomic)/.test(s)) return 'strobe';
-  if (/(par|led|rgb|cyc|fresnel|wash|color)/.test(s)) return 'ledPar';
-  if (/(dim|conv|source ?four|s4|profile|flood|generic)/.test(s)) return 'dimmer';
+  if (/(strob|blind|atomic|jdc|sparky)/.test(s)) return 'strobe';
+  if (/(hybrid|megapointe|mega ?pointe|mythos|pointe|robin ?point)/.test(s)) return 'hybrid';
+  if (/(beam|sharpy|7r|5r|9r|10r)/.test(s)) return 'beam';
+  if (/(wash|aura|spiider|rush ?wash|x4|jarag)/.test(s)) return 'wash';
+  if (/(spot|profile|viper|t1|t2|axcor|scenius|esprit|tarrantula|source ?four led)/.test(s)) return 'spot';
+  if (/(mover|moving|head|mac|clay|martin|robe|ayrton|glp|vari|hes)/.test(s)) return 'spot';
+  if (/(bar|batten|pixel|cob ?bar)/.test(s)) return 'ledBar';
+  if (/(par|led|rgb|cyc|fresnel|color)/.test(s)) return 'ledPar';
+  if (/(dim|conv|source ?four|s4|generic|flood)/.test(s)) return 'dimmer';
   return 'ledPar';
 }
 

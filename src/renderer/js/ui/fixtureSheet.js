@@ -8,7 +8,7 @@
  * - 타일 클릭 = 단일 선택, Ctrl/⌘+클릭 = 토글 추가.
  */
 import { bus, EVT } from '../engine/eventBus.js';
-import { FixtureLibrary } from '../engine/fixtureLibrary.js';
+import { FixtureLibrary, resolveColor } from '../engine/fixtureLibrary.js';
 
 export class FixtureSheet {
   constructor(show, el) {
@@ -53,10 +53,9 @@ export class FixtureSheet {
       const dim = Math.round(v.Dimmer ?? 0);
       const dimSrc = s.Dimmer || 'home';
 
-      const r = Math.round((v.ColorRGB_R ?? 100) * 2.55);
-      const g = Math.round((v.ColorRGB_G ?? 100) * 2.55);
-      const b = Math.round((v.ColorRGB_B ?? 100) * 2.55);
-      const hasColor = type.attributes.some((a) => a.color);
+      const col = resolveColor(fx.type, v);
+      const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
+      const hasColor = type.attributes.some((a) => a.color || a.name === 'ColorWheel');
       const swatch = hasColor
         ? `<span class="fx-swatch" style="background:rgb(${r},${g},${b})"></span>` : '';
 

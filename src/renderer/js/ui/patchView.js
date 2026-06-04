@@ -247,7 +247,11 @@ export class PatchView {
     const k = String(raw || '').trim().toLowerCase().replace(/[\s_-]/g, '');
     const map = {
       par: 'ledPar', ledpar: 'ledPar', led: 'ledPar', rgb: 'ledPar',
-      mh: 'movingHead', moving: 'movingHead', movinghead: 'movingHead', spot: 'movingHead', mover: 'movingHead',
+      bar: 'ledBar', batten: 'ledBar', pixelbar: 'ledBar', pixel: 'ledBar',
+      wash: 'wash', aura: 'wash',
+      mh: 'spot', moving: 'spot', movinghead: 'spot', mover: 'spot', spot: 'spot', profile: 'spot',
+      beam: 'beam', sharpy: 'beam',
+      hybrid: 'hybrid', megapointe: 'hybrid', mythos: 'hybrid', pointe: 'hybrid',
       dim: 'dimmer', dimmer: 'dimmer', conventional: 'dimmer', generic: 'dimmer',
       strobe: 'strobe', blinder: 'strobe', strob: 'strobe',
     };
