@@ -1,0 +1,285 @@
+/* ============================================================
+   MA3 Simulator — 다크 콘솔 테마
+   grandMA3 의 어두운 콘솔 UI 느낌(짙은 회색 + 앰버 액센트).
+   ============================================================ */
+
+:root {
+  --bg: #0b0d10;
+  --bg2: #14171c;
+  --bg3: #1c2128;
+  --panel: #161a20;
+  --line: #2a313b;
+  --text: #d8dee6;
+  --muted: #8a94a2;
+  --amber: #ffb03a;
+  --amber-dim: #b9802a;
+  --green: #46d17a;
+  --red: #ff5b5b;
+  --blue: #4aa3ff;
+  --sel: #2e6cff;
+  --prog: #ff5b5b;   /* 프로그래머(편집중) 값 */
+  --cue: #46d17a;    /* 큐(재생중) 값 */
+  --home: #6b7480;   /* 기본값 */
+  --radius: 7px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Roboto, "Noto Sans KR", system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+  user-select: none;
+}
+button { font-family: inherit; cursor: pointer; }
+small { font-weight: 400; color: var(--muted); }
+code { font-family: "Cascadia Code", Consolas, monospace; }
+
+/* 한/영 병기 토글 */
+.ko, .en { }
+.lang-ko .en { display: none; }
+.lang-en .ko { display: none; }
+.lang-both .en::before { content: " · "; opacity: 0.45; }
+.lang-both .en { opacity: 0.72; font-style: italic; }
+
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── 상단 바 ───────────────────────────────── */
+#topbar {
+  display: flex; align-items: center; gap: 18px;
+  height: 46px; padding: 0 14px;
+  background: linear-gradient(#181c22, #0f1216);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 6px; font-size: 16px; }
+.brand strong { color: var(--amber); letter-spacing: 1px; }
+.brand span { color: var(--muted); font-size: 12px; }
+.view-tabs { display: flex; gap: 4px; }
+.view-tab {
+  background: var(--bg3); color: var(--muted);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 6px 14px; font-size: 13px;
+}
+.view-tab:hover { color: var(--text); }
+.view-tab.active { background: var(--amber); color: #1a1207; border-color: var(--amber); font-weight: 600; }
+.top-actions { margin-left: auto; display: flex; gap: 6px; }
+.top-actions button {
+  background: var(--bg3); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px;
+}
+.top-actions button:hover { border-color: var(--amber-dim); }
+#langToggle { color: var(--amber); }
+
+/* ── 커맨드라인 ────────────────────────────── */
+#commandbar {
+  display: flex; align-items: center; gap: 10px;
+  height: 40px; padding: 0 12px;
+  background: #07090b; border-bottom: 1px solid var(--line);
+}
+.cmd-prompt { color: var(--amber); font-family: monospace; font-weight: 700; }
+#cmdline {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--green); font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 15px; letter-spacing: 0.4px;
+}
+#cmdline::placeholder { color: #3a4450; }
+.cmd-feedback { font-size: 12px; color: var(--muted); min-width: 160px; text-align: right; }
+.cmd-feedback.ok { color: var(--green); }
+.cmd-feedback.err { color: var(--red); }
+
+/* ── 작업 영역/뷰 ──────────────────────────── */
+#workspace { position: relative; flex: 1; overflow: hidden; }
+.view { position: absolute; inset: 0; display: none; overflow: auto; }
+.view.active { display: block; }
+#view-live.active { display: flex; flex-direction: column; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.panel-title {
+  padding: 6px 10px; font-size: 12px; font-weight: 600; color: var(--amber);
+  border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: baseline;
+}
+.empty-note { padding: 16px; color: var(--muted); text-align: center; font-size: 12px; }
+
+/* ── LIVE 레이아웃 ─────────────────────────── */
+.live-grid {
+  flex: 1; display: grid; gap: 8px; padding: 8px;
+  grid-template-columns: minmax(220px, 1.1fr) 2.2fr 280px;
+  min-height: 0;
+}
+.sheet-panel, .stage-panel, .enc-panel { display: flex; flex-direction: column; min-height: 0; }
+.stage-panel { padding: 0; }
+.stage-panel .panel-title { background: rgba(0,0,0,0.3); }
+#stage3d { flex: 1; width: 100%; height: 100%; display: block; background: #07090d; }
+
+.console-row { display: grid; grid-template-columns: 1fr 380px; gap: 8px; padding: 0 8px 8px; height: 230px; }
+.exec-panel, .keys-panel { display: flex; flex-direction: column; min-height: 0; }
+
+/* ── Fixture Sheet ─────────────────────────── */
+#fixtureSheet { flex: 1; overflow: auto; padding: 8px; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 6px; align-content: start; }
+.fx-tile {
+  background: var(--bg3); border: 1px solid var(--line); border-radius: 6px;
+  padding: 5px 4px; cursor: pointer; text-align: center; transition: border-color .1s;
+}
+.fx-tile:hover { border-color: var(--amber-dim); }
+.fx-tile.selected { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
+.fx-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+.fx-id { font-weight: 700; color: var(--text); }
+.fx-dim { font-size: 22px; font-weight: 700; line-height: 1.1; color: var(--home); }
+.fx-dim small { font-size: 10px; }
+.fx-dim.src-programmer { color: var(--prog); }
+.fx-dim.src-cue { color: var(--cue); }
+.fx-dim.src-home { color: var(--home); }
+.fx-bottom { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 14px; }
+.fx-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid #0006; }
+.fx-pt { font-size: 9px; color: var(--muted); }
+
+/* ── Encoder Bar ───────────────────────────── */
+.enc-tabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 6px; border-bottom: 1px solid var(--line); }
+.enc-tab { flex: 1; min-width: 56px; background: var(--bg3); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 5px; padding: 5px 4px; font-size: 11px; }
+.enc-tab.active { background: var(--amber); color: #1a1207; font-weight: 600; }
+.enc-list { padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow: auto; }
+.encoder { background: var(--bg3); border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; text-align: center; }
+.enc-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.enc-knob {
+  height: 60px; border-radius: 50%; width: 60px; margin: 0 auto 6px;
+  background: radial-gradient(circle at 50% 35%, #2a3038, #12161b);
+  border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
+  cursor: ns-resize; touch-action: none;
+}
+.encoder.is-color .enc-knob { border-color: var(--enc-col); box-shadow: 0 0 8px -2px var(--enc-col); }
+.enc-val { font-size: 14px; font-weight: 700; color: var(--text); }
+.enc-btns { display: flex; gap: 4px; }
+.enc-btns button { flex: 1; background: var(--bg2); border: 1px solid var(--line); color: var(--text); border-radius: 4px; padding: 3px; }
+.enc-btns button:hover { border-color: var(--amber-dim); }
+
+/* ── Executors ─────────────────────────────── */
+#executorBar { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 8px; overflow: auto; }
+.exec { background: var(--bg3); border: 1px solid var(--line); border-radius: 6px;
+  display: flex; flex-direction: column; align-items: center; padding: 6px 4px; gap: 4px; }
+.exec.on { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+.exec.empty { justify-content: center; opacity: 0.6; }
+.exec-head { font-weight: 700; color: var(--amber); font-size: 12px; }
+.exec-seq { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.2; }
+.exec-fader-area { position: relative; height: 92px; display: flex; align-items: center; justify-content: center; }
+.exec-fader { writing-mode: vertical-lr; direction: rtl; width: 22px; height: 88px; accent-color: var(--amber); }
+.exec-fader-val { position: absolute; bottom: -2px; right: -2px; font-size: 9px; color: var(--muted); }
+.exec-empty-label { color: var(--muted); font-size: 18px; }
+.exec-cue { font-size: 11px; color: var(--muted); }
+.exec-cue.live { color: var(--green); font-weight: 600; }
+.exec-btns { display: flex; gap: 3px; width: 100%; }
+.exec-btns button { flex: 1; border: 1px solid var(--line); background: var(--bg2); color: var(--text); border-radius: 4px; padding: 4px 0; font-size: 11px; }
+.exec-go { color: var(--green) !important; }
+.exec-off { color: var(--red) !important; }
+.exec-assign { background: var(--bg2); border: 1px solid var(--line); color: var(--amber); border-radius: 5px; padding: 5px 10px; }
+
+/* ── Command Keys ──────────────────────────── */
+.keys-split { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; min-height: 0; }
+#hardwareKeys { display: flex; flex-direction: column; gap: 5px; }
+.key-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.hw-key { background: linear-gradient(#262c34, #181d23); color: var(--text);
+  border: 1px solid #323a44; border-radius: 5px; padding: 9px 2px; font-size: 12px; font-weight: 600;
+  box-shadow: 0 2px 0 #0007; }
+.hw-key:active { transform: translateY(1px); box-shadow: 0 1px 0 #0007; }
+.hw-n { color: #cfd6df; }
+.hw-k { color: var(--amber); }
+.hw-o { color: var(--blue); }
+.hw-c { color: var(--red); }
+.hw-p { background: linear-gradient(var(--amber), var(--amber-dim)); color: #1a1207; }
+.cmd-history { overflow: auto; font-size: 11px; border-left: 1px solid var(--line); padding-left: 8px; }
+.hist-row { display: flex; flex-direction: column; padding: 3px 0; border-bottom: 1px dashed #20262e; }
+.hist-row code { color: var(--green); }
+.hist-row.err code { color: var(--red); }
+.hist-row span { color: var(--muted); font-size: 10px; }
+
+/* ── Patch 화면 ────────────────────────────── */
+#view-patch { padding: 16px; }
+.patch-form h2 { color: var(--amber); margin: 0 0 10px; }
+.patch-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.patch-controls label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+.patch-controls input, .patch-controls select {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--line);
+  border-radius: 5px; padding: 6px 8px; font-size: 13px; }
+.patch-controls input[type=number] { width: 90px; }
+.patch-controls button { padding: 8px 16px; border-radius: 5px; border: 1px solid var(--line); background: var(--bg3); color: var(--text); }
+.patch-controls .primary { background: var(--amber); color: #1a1207; border-color: var(--amber); font-weight: 600; }
+.hint-line { color: var(--muted); font-size: 12px; }
+.patch-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+.patch-table th, .patch-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.patch-table th { color: var(--muted); font-weight: 600; }
+.patch-table tr.conflict td { color: var(--red); }
+.unpatch { background: transparent; border: 1px solid var(--line); color: var(--red); border-radius: 4px; padding: 2px 8px; }
+
+/* ── Glossary / Quiz ───────────────────────── */
+#view-glossary, #view-quiz { padding: 16px 22px; }
+.gl-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+h2 { color: var(--amber); }
+.cheat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cheat-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.cheat-table code { color: var(--green); white-space: nowrap; }
+.gl-list { display: flex; flex-direction: column; gap: 8px; }
+.gl-item { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; }
+.gl-term { color: var(--amber); font-weight: 700; margin-bottom: 3px; }
+.gl-def { color: var(--text); font-size: 12.5px; line-height: 1.5; }
+
+.quiz-wrap { max-width: 760px; }
+.quiz-item { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 12px 14px; margin-bottom: 12px; }
+.quiz-q { font-weight: 600; margin-bottom: 8px; }
+.quiz-choices { display: grid; gap: 6px; }
+.quiz-choice { text-align: left; background: var(--bg3); border: 1px solid var(--line); color: var(--text); border-radius: 5px; padding: 8px 10px; }
+.quiz-choice:hover { border-color: var(--amber-dim); }
+.quiz-choice.correct { border-color: var(--green); background: #143020; }
+.quiz-choice.wrong { border-color: var(--red); background: #301414; }
+.quiz-check { background: var(--bg3); border: 1px solid var(--line); color: var(--amber); border-radius: 5px; padding: 8px 14px; }
+.quiz-result { margin-top: 8px; font-size: 12px; }
+.quiz-result.ok { color: var(--green); }
+.quiz-result.err { color: var(--red); }
+
+/* ── 튜토리얼 패널 ─────────────────────────── */
+#tutorialPanel {
+  position: fixed; top: 86px; right: 0; bottom: 0; width: 330px;
+  background: linear-gradient(#171b21, #11141a);
+  border-left: 1px solid var(--line); padding: 14px; overflow: auto;
+  transform: translateX(100%); transition: transform .22s ease; z-index: 40;
+  box-shadow: -8px 0 24px -10px #000;
+}
+#tutorialPanel.visible { transform: translateX(0); }
+.tut-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tut-head strong { color: var(--amber); }
+#tut-lesson { background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px; max-width: 180px; }
+.tut-progress { font-size: 11px; color: var(--muted); margin: 8px 0; }
+.tut-title { margin: 6px 0; font-size: 15px; }
+.tut-body { font-size: 13px; line-height: 1.6; color: var(--text); }
+.tut-hint { margin-top: 10px; }
+.tut-hint summary { cursor: pointer; color: var(--amber); font-size: 12px; }
+.tut-hint code { display: inline-block; margin-top: 6px; background: #07090b; color: var(--green); padding: 4px 8px; border-radius: 4px; }
+.tut-status { margin-top: 12px; padding: 8px; border-radius: 5px; font-size: 12px; text-align: center; }
+.tut-status.ok { background: #143020; color: var(--green); }
+.tut-status.wait { background: #2a2410; color: var(--amber); }
+.tut-status.info { background: var(--bg3); color: var(--muted); }
+.tut-nav { display: flex; gap: 8px; margin-top: 12px; }
+.tut-nav button { flex: 1; background: var(--bg3); border: 1px solid var(--line); color: var(--text); border-radius: 5px; padding: 8px; }
+.tut-nav button.primary { background: var(--amber); color: #1a1207; font-weight: 600; }
+.tut-nav button.ghost { opacity: 0.6; }
+
+/* 튜토리얼 패널이 열리면 작업영역 오른쪽에 공간을 비워 인코더/키패드가 가리지 않게 */
+#app.tut-open #workspace { margin-right: 330px; }
+#app.tut-open #commandbar { padding-right: 342px; }
+
+/* ── 토스트 ────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #1c2128; border: 1px solid var(--line); color: var(--text);
+  padding: 10px 18px; border-radius: 8px; opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s; z-index: 100; box-shadow: 0 8px 24px -8px #000;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.err { border-color: var(--red); color: #ffb4b4; }
+
+/* 스크롤바 */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: #2a313b; border-radius: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
