@@ -60,6 +60,13 @@ export class TimecodeView {
             <input id="tc-duration" type="number" min="2" max="600" value="${dur}"></label>
         </div>
 
+        <div class="tc-audio">
+          <button id="tc-loadaudio">${bi('🎵 음악 불러오기', '🎵 Load music')}</button>
+          <span class="tc-audioname">${tc.audioName ? '♪ ' + tc.audioName : bi('음악 없음 (내부 클럭으로 재생)', 'No music (internal clock)')}</span>
+          ${tc.audioName ? `<button id="tc-clearaudio">${bi('제거', 'Remove')}</button>` : ''}
+          <input id="tc-audiofile" type="file" accept="audio/*" hidden>
+        </div>
+
         <div class="tc-timeline" id="tc-timeline">
           <div class="tc-playhead" id="tc-playhead" style="left:${(tc.position / dur) * 100}%"></div>
           ${markers}
@@ -94,6 +101,17 @@ export class TimecodeView {
     };
     this.el.querySelector('#tc-example').onclick = () => this._loadExample();
     this.el.querySelector('#tc-clear').onclick = () => tc.clearEvents();
+    this.el.querySelector('#tc-loadaudio').onclick = () => this.el.querySelector('#tc-audiofile').click();
+    this.el.querySelector('#tc-audiofile').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      tc.setAudio(url, file.name);
+      toast({ ko: `음악 로드: ${file.name}`, en: `Music loaded: ${file.name}` });
+      e.target.value = '';
+    };
+    const clr = this.el.querySelector('#tc-clearaudio');
+    if (clr) clr.onclick = () => tc.clearAudio();
     this.el.querySelectorAll('.tc-del').forEach((b) => b.onclick = () => tc.removeEvent(parseInt(b.dataset.id, 10)));
     // 타임라인 클릭 → 스크럽
     this.el.querySelector('#tc-timeline').onclick = (e) => {

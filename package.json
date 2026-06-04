@@ -23,6 +23,7 @@
     "electron": "^33.4.11"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "three": "^0.184.0"
   }
 }

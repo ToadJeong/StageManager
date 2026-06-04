@@ -39,6 +39,69 @@ export const LESSONS = [
   },
 
   {
+    id: 'basics',
+    title: { ko: '0.5 기초: 콘솔·전원·케이블링', en: '0.5 Basics: Console, Power & Cabling' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: 'MA3 전원 켜기 / 끄기', en: 'Powering the MA3 on / off' },
+        body: {
+          ko: '【켜기】 콘솔 뒷면 메인 전원 스위치 ON → 앞면 Power 버튼을 짧게 누름 → 부팅 대기.\n\n【끄기】 절대 전원을 그냥 뽑지 마세요(쇼파일 손상 위험).\n  Menu → Power Options → Power Off(또는 Shutdown) 로 정상 종료한 뒤 전원을 내립니다.\n  공연 중에는 항상 쇼를 Save 하고, 가능하면 USB 백업을 둡니다.',
+          en: '【On】 Rear mains switch ON → short-press the front Power button → wait for boot.\n\n【Off】 Never just pull power (risks corrupting the show).\n  Menu → Power Options → Power Off / Shutdown for a clean shutdown, then switch off mains.\n  Always Save your show and keep a USB backup.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: 'DMX 란? (DMX512)', en: 'What is DMX? (DMX512)' },
+        body: {
+          ko: 'DMX512 는 콘솔이 조명에 보내는 디지털 제어 신호입니다.\n· 한 라인(=1 Universe) 에 채널 1~512.\n· 5핀 XLR 케이블로 기구를 데이지체인(줄줄이) 연결.\n· 라인 끝에는 종단 저항(터미네이터, 120Ω) 을 답니다.\n· 한 라인에 최대 32대 권장(많으면 DMX 스플리터/노드 사용).',
+          en: 'DMX512 is the digital control signal from console to fixtures.\n· One line (= 1 Universe) carries channels 1–512.\n· Daisy-chain fixtures with 5-pin XLR cables.\n· Terminate the end of the line with a 120Ω terminator.\n· ~32 devices max per line (use a splitter/node beyond that).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '채널 · 주소(Address) 설정', en: 'Channels & Addressing' },
+        body: {
+          ko: '각 기구는 자기 데이터를 어디서 읽을지 "시작 주소"로 정합니다.\n· 기구가 쓰는 채널 수 = Footprint (예: RGB PAR = 4채널).\n· 기구 메뉴(또는 옛 장비는 DIP 스위치)에서 시작 주소를 설정.\n· 주소가 겹치면 두 기구가 똑같이 움직입니다 → 겹치지 않게!\n  예) 1번 기구 1~4 → 2번 기구는 5부터.\n콘솔의 Patch 가 "Fixture ↔ Universe/Address" 를 연결합니다(Patch 탭 참고).',
+          en: 'Each fixture reads its data from a "start address".\n· Channels a fixture uses = its Footprint (e.g. RGB PAR = 4ch).\n· Set the start address in the fixture menu (or DIP switches on older units).\n· Overlapping addresses make fixtures move identically → keep them unique!\n  e.g. fixture 1 = 1–4, so fixture 2 starts at 5.\nThe console’s Patch links Fixture ↔ Universe/Address (see the Patch tab).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: 'RDM (원격 장치 관리)', en: 'RDM (Remote Device Management)' },
+        body: {
+          ko: 'RDM 은 DMX 위에서 동작하는 양방향 통신입니다.\n· 같은 DMX 케이블로 기구의 주소·모드를 원격 설정/확인.\n· 사다리 안 타고도 패치 확인, 온도/램프상태 모니터링 가능.\n· 단, 모든 기구·스플리터가 RDM 을 지원해야 합니다(비지원 스플리터는 신호 차단).',
+          en: 'RDM is two-way communication on top of DMX.\n· Remotely set/read a fixture’s address & mode over the same DMX cable.\n· Check patch and monitor temp/lamp status without a ladder.\n· All devices/splitters in the path must support RDM (non-RDM splitters block it).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '전원: powerCON 과 배선', en: 'Power: powerCON & cabling' },
+        body: {
+          ko: 'powerCON(파워콘)은 잠금식 전원 커넥터입니다(파랑=입력 IN, 회색=출력 OUT, True1 은 활선 착탈 가능).\n· OUT → 다음 기구 IN 으로 전원도 데이지체인 가능(정격 용량 한도 내에서!).\n· 전원 데이지체인 개수는 기구 소비전력과 차단기 용량으로 결정 — 초과 금지.\n· DMX(신호)와 전원은 별개 케이블입니다. 전원 먼저, 그다음 데이터.',
+          en: 'powerCON is a locking power connector (blue = IN, grey = OUT; True1 is make/break under load).\n· Chain power OUT → next fixture IN — within the rated capacity!\n· How many you can chain depends on each fixture’s draw and the breaker — don’t exceed it.\n· DMX (data) and power are separate cables. Power first, then data.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '네트워크: sACN / Art-Net / 노드', en: 'Network: sACN / Art-Net / Nodes' },
+        body: {
+          ko: '요즘은 DMX 를 네트워크(이더넷)로 여러 Universe 전송합니다.\n· sACN(E1.31), Art-Net = 네트워크로 DMX 를 보내는 프로토콜.\n· "노드(Node)" 가 네트워크 신호를 물리 DMX(XLR)로 변환해 기구로.\n· MA3 는 MA-Net 으로 콘솔·프로세싱유닛·백업을 연결합니다.\n실제 출력 전에 콘솔에서 어떤 Universe 를 어떤 프로토콜/노드로 보낼지(Output) 설정합니다.',
+          en: 'Modern rigs send many universes over Ethernet.\n· sACN (E1.31) and Art-Net carry DMX over the network.\n· A "Node" converts network data to physical DMX (XLR) for fixtures.\n· MA3 links consoles, processing units and backup via MA-Net.\nBefore output you configure which universe goes to which protocol/node (Output settings).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '콘솔 구역 익히기', en: 'Console sections' },
+        body: {
+          ko: 'grandMA3 콘솔의 주요 구역:\n· Command Section — 키패드/커맨드라인(이 시뮬레이터의 핵심).\n· Encoders — 어트리뷰트 미세 조정.\n· Playback Faders + 버튼 — 익스큐터(큐 재생).\n· Screens(터치) — 윈도우/뷰.\n이 시뮬레이터의 Live 화면이 이 구역들을 본떠 만들어졌습니다. 이제 실제로 만져봅시다!',
+          en: 'Main sections of a grandMA3:\n· Command Section — keypad/command line (the heart of this sim).\n· Encoders — fine attribute control.\n· Playback faders + buttons — executors (cue playback).\n· Touch screens — windows/views.\nThis simulator’s Live screen mirrors these. Now let’s actually use it!',
+        },
+      },
+    ],
+  },
+
+  {
     id: 'selection',
     title: { ko: '1. 선택과 디머 (Selection & Dimmer)', en: '1. Selection & Dimmer' },
     steps: [
@@ -250,6 +313,14 @@ export const LESSONS = [
         },
         hint: { ko: '▶ (재생) 버튼', en: '▶ (play) button' },
         check: (show, ctx) => !!(ctx.timecode && ctx.timecode.playing),
+      },
+      {
+        type: 'info',
+        title: { ko: '음악과 맞춰 최종 점검 🎵', en: 'Final check with music 🎵' },
+        body: {
+          ko: 'Timecode 탭의 [🎵 음악 불러오기] 로 노래 파일을 올리면, 길이가 음악에 맞춰지고 재생 위치가 음악과 동기화됩니다.\n\n곡의 박자/가사에 맞는 시간에 Go 이벤트를 배치하고 ▶ 를 누르면, 음악과 내가 만든 메모리(큐)가 함께 실행됩니다. Live 탭에서 3D 무대를 보며 타이밍이 맞는지 최종 확인하세요!',
+          en: 'On the Timecode tab use [🎵 Load music] to add a song — the length matches the music and the playhead locks to it.\n\nPlace Go events at the right musical moments and press ▶: the music and your stored memories (cues) run together. Open the Live tab to watch the 3D stage and verify the timing!',
+        },
       },
       {
         type: 'info',

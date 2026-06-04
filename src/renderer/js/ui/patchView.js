@@ -8,6 +8,7 @@ import { bus, EVT } from '../engine/eventBus.js';
 import { FixtureLibrary } from '../engine/fixtureLibrary.js';
 import { reflowPositions } from '../engine/layout.js';
 import { parseDxf, guessType, guessTagRoles, makeAutoFit } from '../engine/dxf.js';
+import { parseMvr } from '../engine/mvr.js';
 import { bi, tt, toast } from '../i18n.js';
 
 export class PatchView {
@@ -63,13 +64,16 @@ export class PatchView {
         <div class="patch-import">
           <h3>${bi('라이트 도면 / 패치 리스트 가져오기', 'Import light plot / patch list')}</h3>
           <div class="patch-controls">
-            <button id="p-dxf" class="primary">${bi('DXF 도면 가져오기', 'Import DXF drawing')}</button>
+            <button id="p-mvr" class="primary">${bi('MVR 가져오기', 'Import MVR')}</button>
+            <button id="p-dxf" class="primary">${bi('DXF 도면 가져오기', 'Import DXF')}</button>
             <button id="p-import">${bi('CSV 가져오기', 'Import CSV')}</button>
             <button id="p-template">${bi('CSV 템플릿 받기', 'Download template')}</button>
+            <input id="p-mvrfile" type="file" accept=".mvr,application/zip" hidden>
             <input id="p-dxffile" type="file" accept=".dxf" hidden>
             <input id="p-file" type="file" accept=".csv,text/csv" hidden>
           </div>
           <p class="hint-line">
+            ${bi('MVR: Vectorworks 등에서 <b>MVR 내보내기</b>한 .mvr 을 올리면 픽스처·타입·주소·위치가 그대로 등록됩니다(가장 정확한 경로).', 'MVR: upload an .mvr exported from Vectorworks — fixtures, types, addresses & positions come in directly (most accurate path).')}<br>
             ${bi('DXF: AutoCAD 도면(.dwg)은 캐드에서 <b>DXF로 내보내기</b>(SAVEAS→DXF 또는 DXFOUT) 후 올리면, 조명 블록의 위치·속성(채널/주소)을 읽어 자동 등록합니다.', 'DXF: export your AutoCAD .dwg as <b>DXF</b> (SAVEAS→DXF / DXFOUT), then upload — fixture blocks’ positions & attributes (channel/address) are auto-registered.')}<br>
             ${bi('CSV 열: fixtureId, type, universe, address, x, y(=트림높이), z, name. (type: par / mh / dimmer / strobe)', 'CSV columns: fixtureId, type, universe, address, x, y(=trim height), z, name.')}
           </p>
@@ -110,8 +114,25 @@ export class PatchView {
       reader.readAsText(file);
       e.target.value = '';
     };
+    this.el.querySelector('#p-mvr').onclick = () => this.el.querySelector('#p-mvrfile').click();
+    this.el.querySelector('#p-mvrfile').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => this._onMvr(reader.result);
+      reader.readAsArrayBuffer(file);
+      e.target.value = '';
+    };
     // 매핑 패널을 다시 그렸을 때 복원
     if (this._dxf) this._renderDxfPanel();
+  }
+
+  // ── MVR 가져오기 ────────────────────────────────────
+  _onMvr(arrayBuffer) {
+    let parsed;
+    try { parsed = parseMvr(arrayBuffer); } catch (err) { console.error(err); toast({ ko: 'MVR 파싱 실패', en: 'MVR parse failed' }, 'err'); return; }
+    if (!parsed.inserts.length) { toast({ ko: 'MVR 에서 픽스처를 찾지 못했습니다', en: 'No fixtures in MVR' }, 'err'); return; }
+    this._ingestParsed(parsed);
   }
 
   // ── DXF 도면 가져오기 ───────────────────────────────
@@ -122,6 +143,11 @@ export class PatchView {
       toast({ ko: '도면에서 블록(INSERT)을 찾지 못했습니다', en: 'No block inserts found in the drawing' }, 'err');
       return;
     }
+    this._ingestParsed(parsed);
+  }
+
+  /** DXF/MVR 공통: 파싱 결과로 매핑 패널 준비. */
+  _ingestParsed(parsed) {
     // 블록별 타입 추정 + 속성 역할 추정
     this._dxf = parsed;
     this._dxfMap = {};
