@@ -213,6 +213,17 @@ code { font-family: "Cascadia Code", Consolas, monospace; }
 .hint-line { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .patch-import { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .patch-import h3 { color: var(--amber); font-size: 14px; margin: 0 0 10px; }
+.dxf-box { margin-top: 16px; background: var(--panel); border: 1px solid var(--amber-dim); border-radius: 8px; padding: 14px; }
+.dxf-box h3 { color: var(--amber); margin: 0 0 10px; }
+.dxf-table { max-width: 560px; }
+.dxf-table select { background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; }
+.dxf-roles { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.dxf-roles label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+.dxf-roles select, .dxf-roles input { background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; }
+.dxf-roles input { width: 90px; }
+.dxf-actions { display: flex; gap: 8px; }
+.dxf-actions button { padding: 8px 18px; border-radius: 5px; border: 1px solid var(--line); background: var(--bg3); color: var(--text); }
+.dxf-actions .primary { background: var(--amber); color: #1a1207; border-color: var(--amber); font-weight: 600; }
 .patch-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
 .patch-table th, .patch-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); }
 .patch-table th { color: var(--muted); font-weight: 600; }

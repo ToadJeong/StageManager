@@ -7,6 +7,7 @@
 import { bus, EVT } from '../engine/eventBus.js';
 import { FixtureLibrary } from '../engine/fixtureLibrary.js';
 import { reflowPositions } from '../engine/layout.js';
+import { parseDxf, guessType, guessTagRoles, makeAutoFit } from '../engine/dxf.js';
 import { bi, tt, toast } from '../i18n.js';
 
 export class PatchView {
@@ -62,15 +63,18 @@ export class PatchView {
         <div class="patch-import">
           <h3>${bi('라이트 도면 / 패치 리스트 가져오기', 'Import light plot / patch list')}</h3>
           <div class="patch-controls">
-            <button id="p-import" class="primary">${bi('CSV 가져오기', 'Import CSV')}</button>
+            <button id="p-dxf" class="primary">${bi('DXF 도면 가져오기', 'Import DXF drawing')}</button>
+            <button id="p-import">${bi('CSV 가져오기', 'Import CSV')}</button>
             <button id="p-template">${bi('CSV 템플릿 받기', 'Download template')}</button>
+            <input id="p-dxffile" type="file" accept=".dxf" hidden>
             <input id="p-file" type="file" accept=".csv,text/csv" hidden>
           </div>
           <p class="hint-line">
-            ${bi('CSV 열: fixtureId, type, universe, address, x, y(=트림높이), z, name. (type: par / mh / dimmer / strobe)', 'CSV columns: fixtureId, type, universe, address, x, y(=trim height), z, name. (type: par / mh / dimmer / strobe)')}<br>
-            ${bi('※ Vectorworks 등에서 패치/인스트루먼트 스케줄을 CSV(Excel)로 내보내 올리면 조명이 자동 등록됩니다. PDF·이미지 도면은 자동 인식되지 않으니 CSV 로 내보내 주세요.', '※ Export your patch / instrument schedule from Vectorworks as CSV and upload it to auto-register fixtures. PDF/image plots can’t be auto-read — export to CSV.')}
+            ${bi('DXF: AutoCAD 도면(.dwg)은 캐드에서 <b>DXF로 내보내기</b>(SAVEAS→DXF 또는 DXFOUT) 후 올리면, 조명 블록의 위치·속성(채널/주소)을 읽어 자동 등록합니다.', 'DXF: export your AutoCAD .dwg as <b>DXF</b> (SAVEAS→DXF / DXFOUT), then upload — fixture blocks’ positions & attributes (channel/address) are auto-registered.')}<br>
+            ${bi('CSV 열: fixtureId, type, universe, address, x, y(=트림높이), z, name. (type: par / mh / dimmer / strobe)', 'CSV columns: fixtureId, type, universe, address, x, y(=trim height), z, name.')}
           </p>
         </div>
+        <div id="dxf-panel"></div>
       </div>
       <table class="patch-table">
         <thead><tr>
@@ -97,6 +101,119 @@ export class PatchView {
       reader.readAsText(file);
       e.target.value = '';
     };
+    this.el.querySelector('#p-dxf').onclick = () => this.el.querySelector('#p-dxffile').click();
+    this.el.querySelector('#p-dxffile').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => this._onDxf(reader.result);
+      reader.readAsText(file);
+      e.target.value = '';
+    };
+    // 매핑 패널을 다시 그렸을 때 복원
+    if (this._dxf) this._renderDxfPanel();
+  }
+
+  // ── DXF 도면 가져오기 ───────────────────────────────
+  _onDxf(text) {
+    let parsed;
+    try { parsed = parseDxf(text); } catch (err) { toast({ ko: 'DXF 파싱 실패', en: 'DXF parse failed' }, 'err'); return; }
+    if (!parsed.inserts.length) {
+      toast({ ko: '도면에서 블록(INSERT)을 찾지 못했습니다', en: 'No block inserts found in the drawing' }, 'err');
+      return;
+    }
+    // 블록별 타입 추정 + 속성 역할 추정
+    this._dxf = parsed;
+    this._dxfMap = {};
+    parsed.blocks.forEach((b) => { this._dxfMap[b.name] = guessType(b.name); });
+    this._dxfRoles = guessTagRoles(parsed.tags);
+    this._dxfTrim = 9;
+    this._renderDxfPanel();
+  }
+
+  _renderDxfPanel() {
+    const panel = this.el.querySelector('#dxf-panel');
+    if (!panel || !this._dxf) return;
+    const { blocks, tags, inserts } = this._dxf;
+    const typeOpts = (sel) => [...Object.values(FixtureLibrary).map((t) => `<option value="${t.id}" ${sel === t.id ? 'selected' : ''}>${tt(t.name)}</option>`), `<option value="ignore" ${sel === 'ignore' ? 'selected' : ''}>${tt({ ko: '무시', en: 'ignore' })}</option>`].join('');
+    const tagOpts = (sel) => [`<option value="">—</option>`, ...tags.map((t) => `<option value="${t}" ${sel === t ? 'selected' : ''}>${t}</option>`)].join('');
+
+    const rows = blocks.map((b) => `
+      <tr>
+        <td>${b.name || '(unnamed)'}</td>
+        <td>${b.count}</td>
+        <td><select class="dxf-type" data-block="${b.name}">${typeOpts(this._dxfMap[b.name])}</select></td>
+      </tr>`).join('');
+
+    panel.innerHTML = `
+      <div class="dxf-box">
+        <h3>${bi('DXF 매핑', 'DXF mapping')} <small>${inserts.length} ${bi('블록 발견', 'inserts found')}</small></h3>
+        <table class="patch-table dxf-table">
+          <thead><tr><th>${bi('블록 이름', 'Block')}</th><th>${bi('개수', 'Count')}</th><th>${bi('→ 픽스처 타입', '→ Fixture type')}</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="dxf-roles">
+          <label>${bi('채널/FID 속성', 'Channel/FID attr')}<select id="dxf-fid">${tagOpts(this._dxfRoles.fid)}</select></label>
+          <label>${bi('주소 속성', 'Address attr')}<select id="dxf-addr">${tagOpts(this._dxfRoles.address)}</select></label>
+          <label>${bi('유니버스 속성', 'Universe attr')}<select id="dxf-uni">${tagOpts(this._dxfRoles.universe)}</select></label>
+          <label>${bi('트림 높이', 'Trim height')}<input id="dxf-trim" type="number" value="${this._dxfTrim}" min="0" max="30" step="0.5"></label>
+        </div>
+        <div class="dxf-actions">
+          <button id="dxf-confirm" class="primary">${bi('등록', 'Register')}</button>
+          <button id="dxf-cancel">${bi('취소', 'Cancel')}</button>
+        </div>
+        <p class="hint-line">${bi('속성이 없으면 채널/주소는 자동 배정되고, 좌표는 무대 크기에 맞춰 자동 배치됩니다.', 'If attributes are missing, channel/address are auto-assigned and coordinates are auto-fit to the stage.')}</p>
+      </div>`;
+
+    panel.querySelectorAll('.dxf-type').forEach((s) => s.onchange = () => { this._dxfMap[s.dataset.block] = s.value; });
+    panel.querySelector('#dxf-fid').onchange = (e) => { this._dxfRoles.fid = e.target.value; };
+    panel.querySelector('#dxf-addr').onchange = (e) => { this._dxfRoles.address = e.target.value; };
+    panel.querySelector('#dxf-uni').onchange = (e) => { this._dxfRoles.universe = e.target.value; };
+    panel.querySelector('#dxf-trim').onchange = (e) => { this._dxfTrim = parseFloat(e.target.value) || 9; };
+    panel.querySelector('#dxf-confirm').onclick = () => this._confirmDxf();
+    panel.querySelector('#dxf-cancel').onclick = () => { this._dxf = null; panel.innerHTML = ''; };
+  }
+
+  _confirmDxf() {
+    const { inserts } = this._dxf;
+    const roles = this._dxfRoles;
+    const mapped = inserts.filter((ins) => this._dxfMap[ins.block] && this._dxfMap[ins.block] !== 'ignore');
+    if (!mapped.length) { toast({ ko: '등록할 블록 타입을 지정하세요', en: 'Assign at least one block type' }, 'err'); return; }
+
+    const fit = makeAutoFit(mapped.map((i) => ({ x: i.x, y: i.y })));
+    const usedId = new Set([...this.show.fixtures.keys()]);
+    let autoId = Math.max(0, ...usedId) + 1;
+    const freshId = () => { while (usedId.has(autoId)) autoId++; return autoId++; };
+    const nextFreeAddr = {}; // universe → 다음 자동 주소
+
+    let added = 0;
+    for (const ins of mapped) {
+      const typeId = this._dxfMap[ins.block];
+      const type = FixtureLibrary[typeId];
+      // FID
+      let fid = roles.fid ? parseInt(ins.attribs[roles.fid], 10) : NaN;
+      if (Number.isNaN(fid) || usedId.has(fid)) fid = freshId();
+      usedId.add(fid);
+      // Universe
+      let uni = roles.universe ? parseInt(ins.attribs[roles.universe], 10) : NaN;
+      if (Number.isNaN(uni) || uni < 1) uni = 1;
+      // Address
+      let addr = roles.address ? parseInt(ins.attribs[roles.address], 10) : NaN;
+      if (Number.isNaN(addr) || addr < 1 || this.show.addressConflicts(uni, addr, type.footprint)) {
+        let start = nextFreeAddr[uni] || 1;
+        while (start + type.footprint - 1 <= 512 && this.show.addressConflicts(uni, start, type.footprint)) start++;
+        addr = start;
+        nextFreeAddr[uni] = start + type.footprint;
+      }
+      const sp = fit({ x: ins.x, y: ins.y });
+      this.show.patchFixture({ fixtureId: fid, type: typeId, universe: uni, address: addr, position: { x: sp.x, y: this._dxfTrim, z: sp.z }, name: `${ins.block} ${fid}` });
+      added++;
+    }
+    this._dxf = null;
+    this.el.querySelector('#dxf-panel').innerHTML = '';
+    bus.emit(EVT.PATCH_CHANGED, {});
+    bus.emit(EVT.OUTPUT_CHANGED, {});
+    toast({ ko: `도면에서 ${added}개 조명 등록됨`, en: `Registered ${added} fixtures from drawing` });
   }
 
   // type 별칭 → 라이브러리 키
