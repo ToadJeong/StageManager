@@ -25,8 +25,8 @@ const FN_KEYS = [
   ['Setup', 'fn', 'na'], ['Backup', 'fn', 'na'], ['Menu', 'fn', 'na'], ['Esc', 'fn', 'na'],
   ['Store', 'data', 'ins'], ['Update', 'fn', 'update'], ['Edit', 'fn', 'na'], ['Delete', 'data', 'ins'],
   ['Copy', 'fn', 'na'], ['Move', 'fn', 'na'], ['Label', 'fn', 'na'], ['Oops', 'special', 'oops'],
-  ['Fixture', 'data', 'ins'], ['Group', 'data', 'ins'], ['Sequ', 'data', 'na'], ['Preset', 'data', 'na'],
-  ['Cue', 'data', 'ins'], ['Exec', 'data', 'na'], ['Page', 'data', 'na'], ['Macro', 'data', 'na'],
+  ['Fixture', 'data', 'ins'], ['Group', 'data', 'ins'], ['Sequ', 'data', 'na'], ['Preset', 'data', 'ins'],
+  ['Cue', 'data', 'ins'], ['Exec', 'data', 'na'], ['Page', 'data', 'ins'], ['Macro', 'data', 'na'],
   ['Goto', 'transport', 'na'], ['Select', 'fn', 'na'], ['Align', 'fn', 'na'], ['Time', 'fn', 'na'],
   ['Highlight', 'special', 'highlight'], ['Solo', 'special', 'na'], ['Home', 'special', 'home'], ['Off', 'transport', 'off'],
 ];
@@ -93,7 +93,9 @@ export class ConsoleView {
         <div class="ma3-lower">
           <!-- 좌: 플레이백 -->
           <div class="ma3-playback-area">
-            <div class="ma3-letterbox">PLAYBACK</div>
+            <div class="ma3-letterbox">PLAYBACK
+              <span class="ma3-page"><button id="con-pageprev">◀</button><b id="con-pageno">PAGE 1</b><button id="con-pagenext">▶</button></span>
+            </div>
             <div class="ma3-execrow" id="con-execrow">${execBtns}</div>
             <div class="ma3-faderwrap">
               <div class="con-playbacks" id="con-playbacks">${faders}</div>
@@ -177,6 +179,10 @@ export class ConsoleView {
     this.el.querySelector('#con-mgo').onclick = () => { const n = lowest(); if (n != null) this.show.execGo(n); };
     this.el.querySelector('#con-mback').onclick = () => { const n = lowest(); if (n != null) this.show.execGoBack(n); };
     this.el.querySelector('#con-mpause').onclick = () => toast({ ko: 'Pause: 학습 버전 미구현', en: 'Pause: not in this build' });
+
+    // 페이지 전환
+    this.el.querySelector('#con-pageprev').onclick = () => this.show.pagePrev();
+    this.el.querySelector('#con-pagenext').onclick = () => this.show.pageNext();
 
     this._bindWheel(this.el.querySelector('#con-wheel'));
   }
@@ -279,6 +285,8 @@ export class ConsoleView {
   }
 
   _updateFaders() {
+    const pageEl = this.el.querySelector('#con-pageno');
+    if (pageEl) pageEl.textContent = `PAGE ${this.show.currentPage}`;
     for (const no of PLAYBACKS) {
       const ex = this.show.executors.get(no);
       const strip = this.el.querySelector(`.con-pb[data-no="${no}"]`);

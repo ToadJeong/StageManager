@@ -37,8 +37,18 @@ export class Show {
     this.groups = new Map();
     /** @type {Map<number, Sequence>} */
     this.sequences = new Map();
-    /** @type {Map<number, Executor>} 버튼번호 → Executor */
-    this.executors = new Map();
+    /**
+     * 익스큐터 페이지: pageNo → (buttonNo → Executor).
+     * this.executors 는 항상 "현재 페이지"의 Map 을 가리킨다.
+     */
+    this.pages = new Map([[1, new Map()]]);
+    this.currentPage = 1;
+    this.executors = this.pages.get(1);
+    /**
+     * 프리셋 풀: feature(Dimmer/Position/Color/Gobo/Beam/Focus...) → (no → preset)
+     * preset = { type, no, name, values:{fixtureId:{attr:val}}, generic:{attr:val} }
+     */
+    this.presets = new Map();
     /** 현재 Store 대상 시퀀스 (기본 1) */
     this.selectedSequenceId = 1;
     /** 타임코드 이벤트 목록 (영속화 대상): {id,time,buttonNo,action} */
@@ -47,6 +57,82 @@ export class Show {
     /** 그랜드마스터 0~100 (전체 디머 출력 마스터) */
     this.grandMaster = 100;
     this._nextFixtureId = 1;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 익스큐터 페이지 (Page)
+  // ──────────────────────────────────────────────────────────
+
+  changePage(pageNo) {
+    pageNo = Math.max(1, Math.round(pageNo));
+    if (!this.pages.has(pageNo)) this.pages.set(pageNo, new Map());
+    this.currentPage = pageNo;
+    this.executors = this.pages.get(pageNo);
+    bus.emit(EVT.EXEC_CHANGED, { page: pageNo });
+    this._emitOutput();
+  }
+
+  pageNext() { this.changePage(this.currentPage + 1); }
+  pagePrev() { if (this.currentPage > 1) this.changePage(this.currentPage - 1); }
+
+  // ──────────────────────────────────────────────────────────
+  // 프리셋 (Preset)
+  // ──────────────────────────────────────────────────────────
+
+  _ensurePool(type) {
+    if (!this.presets.has(type)) this.presets.set(type, new Map());
+    return this.presets.get(type);
+  }
+
+  /** 프로그래머에서 해당 feature 의 어트리뷰트만 모아 프리셋으로 저장. */
+  storePreset(type, no, name = null) {
+    const values = {};
+    let generic = null;
+    for (const [fid, attrs] of this.programmer.entries()) {
+      const fx = this.fixtures.get(fid);
+      if (!fx) continue;
+      const picked = {};
+      for (const attrName in attrs) {
+        const def = getAttrDef(fx.type, attrName);
+        if (def && def.feature === type) picked[attrName] = attrs[attrName];
+      }
+      if (Object.keys(picked).length) {
+        values[fid] = picked;
+        if (!generic) generic = { ...picked };
+      }
+    }
+    if (!generic) return { ok: false, empty: true };
+    const pool = this._ensurePool(type);
+    pool.set(no, { type, no, name: name || `${type} ${no}`, values, generic });
+    bus.emit(EVT.PRESET_CHANGED, { type, no });
+    return { ok: true };
+  }
+
+  getPreset(type, no) {
+    const pool = this.presets.get(type);
+    return pool ? pool.get(no) : null;
+  }
+
+  deletePreset(type, no) {
+    const pool = this.presets.get(type);
+    if (pool) pool.delete(no);
+    bus.emit(EVT.PRESET_CHANGED, { type, no, deleted: true });
+  }
+
+  /** 프리셋을 선택 픽스처에 적용(프로그래머에 기록). */
+  recallPreset(type, no, ids = this.selection) {
+    const preset = this.getPreset(type, no);
+    if (!preset || !ids.length) return { ok: false };
+    this.pushUndo();
+    for (const id of ids) {
+      const fx = this.fixtures.get(id);
+      if (!fx) continue;
+      const src = preset.values[id] || preset.generic;
+      for (const attrName in src) {
+        if (getAttrDef(fx.type, attrName)) this.setProgrammerAttr(attrName, src[attrName], [id]);
+      }
+    }
+    return { ok: true };
   }
 
   /** 그랜드마스터 설정(전체 디머 스케일). */
@@ -385,7 +471,9 @@ export class Show {
       fixtures: [...this.fixtures.values()],
       groups: [...this.groups.values()],
       sequences: [...this.sequences.values()],
-      executors: [...this.executors.values()],
+      pages: [...this.pages.entries()].map(([p, m]) => [p, [...m.values()]]),
+      currentPage: this.currentPage,
+      presets: [...this.presets.entries()].map(([t, m]) => [t, [...m.values()]]),
       selectedSequenceId: this.selectedSequenceId,
       timecodeEvents: this.timecodeEvents,
       timecodeDuration: this.timecodeDuration,
@@ -401,7 +489,24 @@ export class Show {
     });
     (data.groups || []).forEach((g) => this.groups.set(g.id, g));
     (data.sequences || []).forEach((s) => this.sequences.set(s.id, s));
-    (data.executors || []).forEach((e) => this.executors.set(e.buttonNo, e));
+    // 페이지(구버전 호환: executors 평면 배열이면 1페이지로)
+    this.pages = new Map();
+    if (data.pages) {
+      for (const [p, list] of data.pages) {
+        const m = new Map(); (list || []).forEach((e) => m.set(e.buttonNo, e)); this.pages.set(Number(p), m);
+      }
+    } else if (data.executors) {
+      const m = new Map(); data.executors.forEach((e) => m.set(e.buttonNo, e)); this.pages.set(1, m);
+    }
+    if (!this.pages.size) this.pages.set(1, new Map());
+    this.currentPage = data.currentPage || 1;
+    if (!this.pages.has(this.currentPage)) this.pages.set(this.currentPage, new Map());
+    this.executors = this.pages.get(this.currentPage);
+    // 프리셋
+    this.presets = new Map();
+    (data.presets || []).forEach(([t, list]) => {
+      const m = new Map(); (list || []).forEach((p) => m.set(p.no, p)); this.presets.set(t, m);
+    });
     this.selectedSequenceId = data.selectedSequenceId || 1;
     this.timecodeEvents = data.timecodeEvents || [];
     this.timecodeDuration = data.timecodeDuration || 20;

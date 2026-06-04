@@ -52,7 +52,24 @@ const KW = {
   goback: ['goback', 'back'],
   off: ['off'],
   home: ['home'],
+  preset: ['preset', 'pre'],
+  page: ['page'],
 };
+
+// feature 단어 → Feature 이름
+const FEATURE_WORDS = {
+  dimmer: 'Dimmer', dim: 'Dimmer', intensity: 'Dimmer', int: 'Dimmer',
+  position: 'Position', pos: 'Position', pantilt: 'Position',
+  color: 'Color', col: 'Color',
+  gobo: 'Gobo',
+  beam: 'Beam',
+  focus: 'Focus',
+  control: 'Control',
+};
+function featureFromTok(tok) {
+  if (!tok || tok.t !== 'kw') return null;
+  return FEATURE_WORDS[tok.v] || null;
+}
 
 function isKw(tok, name) {
   return tok && tok.t === 'kw' && KW[name].includes(tok.v);
@@ -186,7 +203,15 @@ export function executeCommand(show, commandStr) {
         show.storeGroup(noTok.v);
         return { ok: true, message: msg(`Group ${noTok.v} 저장됨`, `Stored Group ${noTok.v}`) };
       }
-      return { ok: false, message: msg('Store 대상(Cue/Group) 필요', 'Specify Store target (Cue/Group)') };
+      if (isKw(tokens[i], 'preset')) {
+        const ft = featureFromTok(tokens[i + 1]);
+        const noTok = tokens[i + 2];
+        if (!ft || !noTok || noTok.t !== 'num') return { ok: false, message: msg('Store Preset <타입> <번호> 형식', 'Use: Store Preset <type> <no>') };
+        const r = show.storePreset(ft, noTok.v);
+        if (!r.ok) return { ok: false, message: msg('프로그래머에 해당 값 없음', `No ${ft} values in programmer`) };
+        return { ok: true, message: msg(`${ft} Preset ${noTok.v} 저장됨`, `Stored ${ft} Preset ${noTok.v}`) };
+      }
+      return { ok: false, message: msg('Store 대상(Cue/Group/Preset) 필요', 'Specify Store target (Cue/Group/Preset)') };
     }
     // Delete
     if (isKw(first, 'delete')) {
@@ -219,6 +244,26 @@ export function executeCommand(show, commandStr) {
       const verb = isKw(first, 'go') ? 'Go' : isKw(first, 'goback') ? 'GoBack' : 'Off';
       return { ok: true, message: msg(`Executor ${buttonNo} ${verb}`, `Executor ${buttonNo} ${verb}`) };
     }
+  }
+
+  // ── Page <n> ─────────────────────────────────────────────
+  if (isKw(first, 'page')) {
+    const noTok = tokens[1];
+    if (!noTok || noTok.t !== 'num') return { ok: false, message: msg('Page 번호 필요', 'Page number required') };
+    show.changePage(noTok.v);
+    return { ok: true, message: msg(`페이지 ${noTok.v}`, `Page ${noTok.v}`) };
+  }
+
+  // ── Preset <type> <no> (선택에 적용) ─────────────────────
+  if (isKw(first, 'preset')) {
+    const ft = featureFromTok(tokens[1]);
+    const noTok = tokens[2];
+    if (!ft || !noTok || noTok.t !== 'num') return { ok: false, message: msg('Preset <타입> <번호> 형식', 'Use: Preset <type> <no>') };
+    if (!show.selection.length) return { ok: false, message: msg('선택된 픽스처 없음', 'Nothing selected') };
+    const r = show.recallPreset(ft, noTok.v);
+    return r.ok
+      ? { ok: true, message: msg(`${ft} Preset ${noTok.v} 적용`, `Recalled ${ft} Preset ${noTok.v}`) }
+      : { ok: false, message: msg(`${ft} Preset ${noTok.v} 없음`, `${ft} Preset ${noTok.v} not found`) };
   }
 
   // ── 선택 + 값 명령 ───────────────────────────────────────

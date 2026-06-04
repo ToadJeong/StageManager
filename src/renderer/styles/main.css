@@ -349,6 +349,25 @@ h2 { color: var(--amber); }
 .io-hint { font-size: 9px; color: #6f7b89; }
 .io-log { margin-top: 4px; font-family: monospace; font-size: 9.5px; color: var(--ma3-bluetext); max-height: 34px; overflow: hidden; }
 
+/* 페이지 컨트롤 (콘솔) */
+.ma3-page { float: right; display: inline-flex; align-items: center; gap: 6px; }
+.ma3-page button { background: #141922; border: 1px solid #2a323d; color: var(--ma3-bluetext); border-radius: 4px; padding: 1px 7px; font-size: 11px; }
+.ma3-page b { color: #cfe0f5; font-size: 10px; letter-spacing: 1px; }
+
+/* ── Presets 화면 ──────────────────────────── */
+#view-presets { padding: 16px 22px; }
+.presets-wrap h2 { color: var(--amber); }
+.pr-pool { margin-bottom: 14px; }
+.pr-pool-title { font-size: 12px; font-weight: 700; color: var(--amber); margin-bottom: 6px; }
+.pr-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; }
+.pr-slot { position: relative; min-height: 50px; border: 1px solid var(--line); border-radius: 6px; padding: 5px; cursor: pointer; background: var(--bg3); display: flex; flex-direction: column; gap: 2px; }
+.pr-slot.empty { opacity: 0.55; border-style: dashed; }
+.pr-slot.filled:hover { border-color: var(--amber); }
+.pr-slot .pr-no { font-size: 10px; color: var(--muted); }
+.pr-slot .pr-name { font-size: 11px; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pr-sw { width: 100%; height: 14px; border-radius: 3px; border: 1px solid #0006; }
+.pr-del { position: absolute; top: 2px; right: 2px; background: transparent; border: none; color: var(--red); font-size: 11px; cursor: pointer; line-height: 1; }
+
 /* ── Timecode 화면 ─────────────────────────── */
 #view-timecode { padding: 16px 22px; }
 .tc-wrap { max-width: 880px; }

@@ -18,6 +18,7 @@ import { GlossaryView, QuizView } from './ui/glossaryQuiz.js';
 import { TipsView } from './ui/tipsView.js';
 import { TimecodeView } from './ui/timecodeView.js';
 import { ConsoleView } from './ui/consoleView.js';
+import { PresetsView } from './ui/presetsView.js';
 import { IOPanel } from './ui/ioPanel.js';
 import { MidiInput } from './io/midi.js';
 import { OscInput } from './io/osc.js';
@@ -56,6 +57,7 @@ function boot() {
   const timecode = new Timecode(show);
   const timecodeView = new TimecodeView(show, timecode, $('#view-timecode'));
   const consoleView = new ConsoleView(show, $('#view-console'));
+  const presetsView = new PresetsView(show, $('#view-presets'));
   // MIDI / OSC 입력 + 제어 패널(콘솔 화면에 표시)
   const midi = new MidiInput(show);
   const osc = new OscInput(show);
@@ -112,7 +114,7 @@ function boot() {
 
   // ── 뷰 전환
   // 'tutorial' 은 별도 화면이 아니라 Live 화면 + 우측 튜토리얼 패널을 켜는 모드.
-  const sections = ['live', 'console', 'patch', 'timecode', 'tips', 'glossary', 'quiz'];
+  const sections = ['live', 'console', 'presets', 'patch', 'timecode', 'tips', 'glossary', 'quiz'];
   function setView(name) {
     const sectionName = name === 'tutorial' ? 'live' : name;
     sections.forEach((v) => {
