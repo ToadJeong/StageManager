@@ -23,8 +23,9 @@ export const i18n = {
   },
 };
 
-/** 한/영 병기 HTML 조각. */
+/** 한/영 병기 HTML 조각. en 을 생략하면 ko 텍스트만 한 번 출력(언어 무관). */
 export function bi(ko, en) {
+  if (en === undefined) return `<span class="bi-both">${ko}</span>`;
   return `<span class="ko">${ko}</span><span class="en">${en}</span>`;
 }
 

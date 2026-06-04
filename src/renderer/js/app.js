@@ -15,6 +15,8 @@ import { EncoderBar } from './ui/encoderBar.js';
 import { ExecutorBar } from './ui/executorBar.js';
 import { PatchView } from './ui/patchView.js';
 import { GlossaryView, QuizView } from './ui/glossaryQuiz.js';
+import { TimecodeView } from './ui/timecodeView.js';
+import { Timecode } from './engine/timecode.js';
 import { Tutorial } from './tutorial/tutorial.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -29,6 +31,7 @@ function boot() {
   // ── 3D 비주얼라이저
   const stage = new Stage3D($('#stage3d'));
   stage.syncFixtures(show);
+  window.__stage = stage; // 디버그용
 
   // ── UI 컴포넌트
   const sheet = new FixtureSheet(show, $('#fixtureSheet'));
@@ -41,25 +44,43 @@ function boot() {
     history: $('#cmdHistory'),
   });
   const patch = new PatchView(show, $('#view-patch'));
+  window.__patch = patch; // 디버그용
   const glossary = new GlossaryView($('#view-glossary'));
   const quiz = new QuizView(show, $('#view-quiz'));
+  const timecode = new Timecode(show);
+  const timecodeView = new TimecodeView(show, timecode, $('#view-timecode'));
   const tutorial = new Tutorial(show, $('#tutorialPanel'));
+  tutorial.ctx.timecode = timecode; // 튜토리얼이 타임코드 상태를 검사할 수 있게
 
   // ── 출력 계산 → 시트/인코더/3D 반영 (마이크로 디바운스)
   // setTimeout(0) 으로 같은 틱의 연속 이벤트를 한 번에 묶는다.
   // (rAF 는 창이 숨겨지면 호출되지 않아 데이터 갱신엔 부적합)
   let pending = false;
+  function renderFrame(now) {
+    const out = computeOutput(show, now);
+    sheet.update(out.values, out.sources);
+    encoder.update(out.values);
+    stage.update(show, out.values);
+  }
   function refreshOutput() {
     if (pending) return;
     pending = true;
     setTimeout(() => {
       pending = false;
-      const out = computeOutput(show);
-      sheet.update(out.values, out.sources);
-      encoder.update(out.values);
-      stage.update(show, out.values);
+      renderFrame(performance.now());
     }, 0);
   }
+
+  // ── 마스터 루프: 타임코드 재생 또는 큐 페이드가 진행 중일 때만 매 프레임 갱신
+  function loop() {
+    requestAnimationFrame(loop);
+    const now = performance.now();
+    if (timecode.playing) timecode.update(now);
+    if (timecode.playing || show.anyFading(now)) {
+      renderFrame(now);
+    }
+  }
+  requestAnimationFrame(loop);
   bus.on(EVT.OUTPUT_CHANGED, refreshOutput);
   bus.on(EVT.PROGRAMMER_CHANGED, refreshOutput);
   bus.on(EVT.EXEC_CHANGED, refreshOutput);
@@ -72,12 +93,13 @@ function boot() {
   encoder.render();
   execBar.render();
   patch.render();
+  timecodeView.render();
   tutorial.render();
   refreshOutput();
 
   // ── 뷰 전환
   // 'tutorial' 은 별도 화면이 아니라 Live 화면 + 우측 튜토리얼 패널을 켜는 모드.
-  const sections = ['live', 'patch', 'glossary', 'quiz'];
+  const sections = ['live', 'patch', 'timecode', 'glossary', 'quiz'];
   function setView(name) {
     const sectionName = name === 'tutorial' ? 'live' : name;
     sections.forEach((v) => {
@@ -145,6 +167,13 @@ function boot() {
     reader.onload = () => { try { show.loadJSON(JSON.parse(reader.result)); toast({ ko: '불러옴', en: 'Loaded' }); } catch { toast({ ko: '파일 오류', en: 'Invalid file' }, 'err'); } };
     reader.readAsText(file);
   };
+
+  // ── 3D 카메라 프리셋 / 테마 토글
+  document.querySelectorAll('[data-view3d]').forEach((b) => b.onclick = () => {
+    stage.setView(b.dataset.view3d);
+    document.querySelectorAll('[data-view3d]').forEach((x) => x.classList.toggle('active', x === b));
+  });
+  $('#themeToggle').onclick = () => stage.toggleTheme();
 
   // ── 창 크기 변경 시 3D 리사이즈
   window.addEventListener('resize', () => stage.resize());

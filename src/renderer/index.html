@@ -16,6 +16,7 @@
       <nav class="view-tabs">
         <button class="view-tab" data-view="live">Live</button>
         <button class="view-tab" data-view="patch">Patch</button>
+        <button class="view-tab" data-view="timecode">Timecode</button>
         <button class="view-tab" data-view="tutorial">Tutorial</button>
         <button class="view-tab" data-view="glossary">Glossary</button>
         <button class="view-tab" data-view="quiz">Quiz</button>
@@ -46,7 +47,14 @@
             <div id="fixtureSheet" class="fx-grid"></div>
           </div>
           <div class="panel stage-panel">
-            <div class="panel-title">3D Stage <small>무대 · 드래그=회전, 휠=줌</small></div>
+            <div class="panel-title">3D Stage <small>무대 · 드래그=회전, 휠=줌</small>
+              <div class="stage-tools">
+                <button data-view3d="3d" class="active">3D</button>
+                <button data-view3d="top">Top</button>
+                <button data-view3d="front">Front</button>
+                <button id="themeToggle" title="Design/Stage">◐</button>
+              </div>
+            </div>
             <canvas id="stage3d"></canvas>
           </div>
           <div class="panel enc-panel">
@@ -71,6 +79,9 @@
 
       <!-- PATCH -->
       <section id="view-patch" class="view"></section>
+
+      <!-- TIMECODE -->
+      <section id="view-timecode" class="view"></section>
 
       <!-- GLOSSARY -->
       <section id="view-glossary" class="view"></section>

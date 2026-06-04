@@ -58,6 +58,19 @@ export class PatchView {
           <button id="p-demo">${bi('데모 리셋', 'Demo reset')}</button>
         </div>
         <p class="hint-line">${bi('주소를 비우면 빈 자리에 자동 배치됩니다.', 'Leave address empty to auto-assign.')}</p>
+
+        <div class="patch-import">
+          <h3>${bi('라이트 도면 / 패치 리스트 가져오기', 'Import light plot / patch list')}</h3>
+          <div class="patch-controls">
+            <button id="p-import" class="primary">${bi('CSV 가져오기', 'Import CSV')}</button>
+            <button id="p-template">${bi('CSV 템플릿 받기', 'Download template')}</button>
+            <input id="p-file" type="file" accept=".csv,text/csv" hidden>
+          </div>
+          <p class="hint-line">
+            ${bi('CSV 열: fixtureId, type, universe, address, x, y(=트림높이), z, name. (type: par / mh / dimmer / strobe)', 'CSV columns: fixtureId, type, universe, address, x, y(=trim height), z, name. (type: par / mh / dimmer / strobe)')}<br>
+            ${bi('※ Vectorworks 등에서 패치/인스트루먼트 스케줄을 CSV(Excel)로 내보내 올리면 조명이 자동 등록됩니다. PDF·이미지 도면은 자동 인식되지 않으니 CSV 로 내보내 주세요.', '※ Export your patch / instrument schedule from Vectorworks as CSV and upload it to auto-register fixtures. PDF/image plots can’t be auto-read — export to CSV.')}
+          </p>
+        </div>
       </div>
       <table class="patch-table">
         <thead><tr>
@@ -73,6 +86,84 @@ export class PatchView {
     };
     this.el.querySelectorAll('.unpatch').forEach((b) =>
       b.onclick = () => this.show.unpatchFixture(parseInt(b.dataset.id, 10)));
+
+    this.el.querySelector('#p-import').onclick = () => this.el.querySelector('#p-file').click();
+    this.el.querySelector('#p-template').onclick = () => this._downloadTemplate();
+    this.el.querySelector('#p-file').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => this._importCSV(reader.result);
+      reader.readAsText(file);
+      e.target.value = '';
+    };
+  }
+
+  // type 별칭 → 라이브러리 키
+  _resolveType(raw) {
+    const k = String(raw || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+    const map = {
+      par: 'ledPar', ledpar: 'ledPar', led: 'ledPar', rgb: 'ledPar',
+      mh: 'movingHead', moving: 'movingHead', movinghead: 'movingHead', spot: 'movingHead', mover: 'movingHead',
+      dim: 'dimmer', dimmer: 'dimmer', conventional: 'dimmer', generic: 'dimmer',
+      strobe: 'strobe', blinder: 'strobe', strob: 'strobe',
+    };
+    if (FixtureLibrary[raw]) return raw; // 정확한 키
+    return map[k] || null;
+  }
+
+  _importCSV(text) {
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) { toast({ ko: '빈 파일', en: 'Empty file' }, 'err'); return; }
+    // 헤더 파싱
+    const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
+    const idx = (name) => header.indexOf(name);
+    const col = { id: idx('fixtureid'), type: idx('type'), uni: idx('universe'), addr: idx('address'), x: idx('x'), y: idx('y'), z: idx('z'), name: idx('name') };
+    if (col.type < 0) { toast({ ko: 'CSV에 type 열이 필요합니다', en: 'CSV needs a "type" column' }, 'err'); return; }
+
+    let added = 0, skipped = 0, hasPos = false;
+    let nextId = Math.max(0, ...this.show.fixtures.keys()) + 1;
+    for (let i = 1; i < lines.length; i++) {
+      const cells = lines[i].split(',').map((c) => c.trim());
+      const typeId = this._resolveType(cells[col.type]);
+      if (!typeId) { skipped++; continue; }
+      const type = FixtureLibrary[typeId];
+      const fixtureId = col.id >= 0 && cells[col.id] ? parseInt(cells[col.id], 10) : nextId++;
+      const universe = col.uni >= 0 && cells[col.uni] ? parseInt(cells[col.uni], 10) : 1;
+      let address = col.addr >= 0 && cells[col.addr] ? parseInt(cells[col.addr], 10) : this._nextFreeAddress(universe, type.footprint);
+      const opts = { fixtureId, type: typeId, universe, address, name: col.name >= 0 ? (cells[col.name] || undefined) : undefined };
+      const hx = col.x >= 0 && cells[col.x] !== '' && cells[col.x] !== undefined;
+      const hy = col.y >= 0 && cells[col.y] !== '' && cells[col.y] !== undefined;
+      const hz = col.z >= 0 && cells[col.z] !== '' && cells[col.z] !== undefined;
+      if (hx || hy || hz) {
+        hasPos = true;
+        opts.position = { x: hx ? parseFloat(cells[col.x]) : 0, y: hy ? parseFloat(cells[col.y]) : 9, z: hz ? parseFloat(cells[col.z]) : 0 };
+      }
+      this.show.patchFixture(opts);
+      nextId = Math.max(nextId, fixtureId + 1);
+      added++;
+    }
+    if (!hasPos) reflowPositions(this.show); // 위치(트림높이) 미지정 시 자동 배치
+    bus.emit(EVT.PATCH_CHANGED, {});
+    bus.emit(EVT.OUTPUT_CHANGED, {});
+    toast({ ko: `${added}개 등록${skipped ? `, ${skipped}개 건너뜀` : ''}`, en: `Registered ${added}${skipped ? `, skipped ${skipped}` : ''}` });
+  }
+
+  _downloadTemplate() {
+    const tmpl = [
+      'fixtureId,type,universe,address,x,y,z,name',
+      '1,par,1,1,-9,9,3,FOH PAR 1',
+      '2,par,1,5,-7,9,3,FOH PAR 2',
+      '11,mh,1,101,-6,10,-5,Mover SL',
+      '12,mh,1,109,6,10,-5,Mover SR',
+      '21,strobe,1,201,0,11,-6,Strobe C',
+    ].join('\n');
+    const blob = new Blob([tmpl], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ma3-patch-template.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   _add() {

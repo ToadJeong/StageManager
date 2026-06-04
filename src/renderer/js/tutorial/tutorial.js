@@ -28,7 +28,8 @@ export class Tutorial {
     // 이벤트 구독 → 현재 단계 재평가
     const recheck = () => this._recheck();
     bus.on(EVT.COMMAND_EXECUTED, (p) => { this.ctx.lastCommand = p?.command || ''; recheck(); });
-    [EVT.PROGRAMMER_CHANGED, EVT.SELECTION_CHANGED, EVT.GROUP_CHANGED, EVT.CUE_STORED, EVT.EXEC_CHANGED, EVT.PATCH_CHANGED]
+    [EVT.PROGRAMMER_CHANGED, EVT.SELECTION_CHANGED, EVT.GROUP_CHANGED, EVT.CUE_STORED,
+      EVT.EXEC_CHANGED, EVT.PATCH_CHANGED, EVT.TC_CHANGED]
       .forEach((e) => bus.on(e, recheck));
   }
 

@@ -111,6 +111,10 @@ code { font-family: "Cascadia Code", Consolas, monospace; }
 .sheet-panel, .stage-panel, .enc-panel { display: flex; flex-direction: column; min-height: 0; }
 .stage-panel { padding: 0; }
 .stage-panel .panel-title { background: rgba(0,0,0,0.3); }
+.stage-tools { margin-left: auto; display: flex; gap: 4px; }
+.stage-tools button { background: var(--bg3); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; font-size: 11px; }
+.stage-tools button.active { background: var(--amber); color: #1a1207; border-color: var(--amber); font-weight: 600; }
+.stage-tools button:hover { color: var(--text); }
 #stage3d { flex: 1; width: 100%; height: 100%; display: block; background: #07090d; }
 
 .console-row { display: grid; grid-template-columns: 1fr 380px; gap: 8px; padding: 0 8px 8px; height: 230px; }
@@ -206,7 +210,9 @@ code { font-family: "Cascadia Code", Consolas, monospace; }
 .patch-controls input[type=number] { width: 90px; }
 .patch-controls button { padding: 8px 16px; border-radius: 5px; border: 1px solid var(--line); background: var(--bg3); color: var(--text); }
 .patch-controls .primary { background: var(--amber); color: #1a1207; border-color: var(--amber); font-weight: 600; }
-.hint-line { color: var(--muted); font-size: 12px; }
+.hint-line { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.patch-import { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.patch-import h3 { color: var(--amber); font-size: 14px; margin: 0 0 10px; }
 .patch-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
 .patch-table th, .patch-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); }
 .patch-table th { color: var(--muted); font-weight: 600; }
@@ -237,6 +243,31 @@ h2 { color: var(--amber); }
 .quiz-result { margin-top: 8px; font-size: 12px; }
 .quiz-result.ok { color: var(--green); }
 .quiz-result.err { color: var(--red); }
+
+/* ── Timecode 화면 ─────────────────────────── */
+#view-timecode { padding: 16px 22px; }
+.tc-wrap { max-width: 880px; }
+.tc-transport { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+.tc-transport button { background: var(--bg3); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 8px 16px; font-size: 16px; }
+.tc-transport .primary { background: var(--amber); color: #1a1207; border-color: var(--amber); }
+.tc-time { font-family: monospace; font-size: 24px; color: var(--green); font-weight: 700; }
+.tc-dur { font-family: monospace; color: var(--muted); }
+.tc-durinput { margin-left: auto; display: flex; flex-direction: column; font-size: 11px; color: var(--muted); }
+.tc-durinput input { width: 80px; background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 5px; }
+.tc-timeline { position: relative; height: 54px; background: #07090b; border: 1px solid var(--line); border-radius: 6px; margin: 8px 0 16px; cursor: pointer; overflow: hidden; }
+.tc-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--green); box-shadow: 0 0 8px var(--green); pointer-events: none; }
+.tc-marker { position: absolute; top: 6px; transform: translateX(-50%); background: var(--amber); color: #1a1207; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 4px; white-space: nowrap; }
+.tc-marker::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: var(--amber); }
+.tc-addrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 14px; }
+.tc-addrow label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+.tc-addrow input, .tc-addrow select { background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; }
+.tc-addrow input[type=number] { width: 90px; }
+.tc-addrow button { padding: 8px 14px; border-radius: 5px; border: 1px solid var(--line); background: var(--bg3); color: var(--text); }
+.tc-addrow .primary { background: var(--amber); color: #1a1207; border-color: var(--amber); font-weight: 600; }
+.tc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tc-table th, .tc-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.tc-table th { color: var(--muted); }
+.tc-del { background: transparent; border: 1px solid var(--line); color: var(--red); border-radius: 4px; padding: 2px 8px; }
 
 /* ── 튜토리얼 패널 ─────────────────────────── */
 #tutorialPanel {

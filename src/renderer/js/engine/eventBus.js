@@ -54,5 +54,7 @@ export const EVT = {
   COMMAND_LINE_CHANGED: 'commandLineChanged',
   SHOW_LOADED: 'showLoaded',
   GROUP_CHANGED: 'groupChanged',
+  TC_TICK: 'tcTick',         // 타임코드 재생 위치 갱신(매 프레임)
+  TC_CHANGED: 'tcChanged',   // 타임코드 이벤트 목록/재생상태 변경
   NOTICE: 'notice', // 사용자에게 보여줄 짧은 메시지
 };

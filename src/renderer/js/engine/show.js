@@ -14,6 +14,9 @@
  */
 import { bus, EVT } from './eventBus.js';
 import { FixtureLibrary, getAttrDef } from './fixtureLibrary.js';
+import { execContribution } from './output.js';
+
+const _now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export class Show {
   constructor() {
@@ -38,6 +41,9 @@ export class Show {
     this.executors = new Map();
     /** 현재 Store 대상 시퀀스 (기본 1) */
     this.selectedSequenceId = 1;
+    /** 타임코드 이벤트 목록 (영속화 대상): {id,time,buttonNo,action} */
+    this.timecodeEvents = [];
+    this.timecodeDuration = 20;
     this._nextFixtureId = 1;
   }
 
@@ -266,6 +272,9 @@ export class Show {
       fader: 100, // 페이더 0~100 (%)
       cueIndex: -1, // 아직 Go 안함
       on: false,
+      fadeFrom: {}, // 페이드 시작 시점의 기여값 스냅샷
+      fadeStart: 0,
+      fadeDur: 0, // 초
     };
     exec.sequenceId = sequenceId;
     this.executors.set(buttonNo, exec);
@@ -281,14 +290,28 @@ export class Show {
     this._emitOutput();
   }
 
-  /** Go — 다음 큐로 진행. */
+  /** 현재 화면에 보이는 익스큐터 기여값을 페이드 시작점으로 스냅샷. */
+  _startFade(exec, cue) {
+    const now = _now();
+    exec.fadeFrom = execContribution(this, exec, now) || {};
+    exec.fadeStart = now;
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
+  }
+
+  /** Go — 다음 큐로 진행(크로스페이드). */
   execGo(buttonNo) {
     const exec = this.executors.get(buttonNo);
     if (!exec) return;
     const seq = this.sequences.get(exec.sequenceId);
     if (!seq || !seq.cues.length) return;
+    const wasOn = exec.on;
     exec.on = true;
+    if (!wasOn) exec.fadeFrom = {}; // OFF 에서 시작하면 0 에서 페이드 업
+    else exec.fadeFrom = execContribution(this, exec, _now()) || {};
     exec.cueIndex = (exec.cueIndex + 1) % seq.cues.length;
+    const cue = seq.cues[exec.cueIndex];
+    exec.fadeStart = _now();
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
     bus.emit(EVT.CUE_FIRED, { buttonNo, cueIndex: exec.cueIndex });
     bus.emit(EVT.EXEC_CHANGED, { buttonNo });
     this._emitOutput();
@@ -299,8 +322,12 @@ export class Show {
     if (!exec) return;
     const seq = this.sequences.get(exec.sequenceId);
     if (!seq || !seq.cues.length) return;
+    exec.fadeFrom = exec.on ? (execContribution(this, exec, _now()) || {}) : {};
     exec.on = true;
     exec.cueIndex = (exec.cueIndex - 1 + seq.cues.length) % seq.cues.length;
+    const cue = seq.cues[exec.cueIndex];
+    exec.fadeStart = _now();
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
     bus.emit(EVT.CUE_FIRED, { buttonNo, cueIndex: exec.cueIndex });
     bus.emit(EVT.EXEC_CHANGED, { buttonNo });
     this._emitOutput();
@@ -312,8 +339,18 @@ export class Show {
     if (!exec) return;
     exec.on = false;
     exec.cueIndex = -1;
+    exec.fadeFrom = {};
+    exec.fadeDur = 0;
     bus.emit(EVT.EXEC_CHANGED, { buttonNo });
     this._emitOutput();
+  }
+
+  /** 진행 중인 페이드가 하나라도 있으면 true (애니메이션 루프 게이트용). */
+  anyFading(now = _now()) {
+    for (const exec of this.executors.values()) {
+      if (exec.on && exec.fadeDur > 0 && (now - exec.fadeStart) < exec.fadeDur * 1000) return true;
+    }
+    return false;
   }
 
   getActiveCue(buttonNo) {
@@ -341,6 +378,8 @@ export class Show {
       sequences: [...this.sequences.values()],
       executors: [...this.executors.values()],
       selectedSequenceId: this.selectedSequenceId,
+      timecodeEvents: this.timecodeEvents,
+      timecodeDuration: this.timecodeDuration,
     };
   }
 
@@ -354,6 +393,8 @@ export class Show {
     (data.sequences || []).forEach((s) => this.sequences.set(s.id, s));
     (data.executors || []).forEach((e) => this.executors.set(e.buttonNo, e));
     this.selectedSequenceId = data.selectedSequenceId || 1;
+    this.timecodeEvents = data.timecodeEvents || [];
+    this.timecodeDuration = data.timecodeDuration || 20;
     bus.emit(EVT.SHOW_LOADED, {});
     bus.emit(EVT.PATCH_CHANGED, {});
     this._emitOutput();

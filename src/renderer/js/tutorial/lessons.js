@@ -200,10 +200,63 @@ export const LESSONS = [
       },
       {
         type: 'info',
-        title: { ko: '다음 단계: 타임코드', en: 'Next: Timecode' },
+        title: { ko: '한 사이클 완성!', en: 'One full cycle!' },
         body: {
-          ko: '훌륭합니다! 패치 → 프로그래밍 → 큐 → 재생의 한 사이클을 익혔습니다.\n\n타임코드(Timecode)는 이 Go 들을 시간(예: 음악 02:14)에 맞춰 자동 실행하는 기능으로, 다음 버전에서 다룹니다.\n\n[Glossary] 탭의 용어집과 [Quiz] 탭의 연습 문제로 복습해보세요.',
-          en: 'Great! You’ve completed one full cycle: Patch → Program → Cue → Playback.\n\nTimecode triggers these Go’s automatically against a time reference (e.g. music 02:14) — coming in the next version.\n\nReview with the [Glossary] and test yourself in the [Quiz] tab.',
+          ko: '훌륭합니다! 패치 → 프로그래밍 → 큐 → 재생의 한 사이클을 익혔습니다.\n\n이제 마지막으로 타임코드(Timecode)를 배워봅시다.',
+          en: 'Great! You’ve completed one full cycle: Patch → Program → Cue → Playback.\n\nFinally, let’s learn Timecode.',
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'timecode',
+    title: { ko: '5. 타임코드 (Timecode)', en: '5. Timecode' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: '타임코드란?', en: 'What is Timecode?' },
+        body: {
+          ko: '타임코드는 "몇 초에 어떤 Go 를 실행할지"를 시간 축에 미리 적어두고 자동으로 재생하는 기능입니다.\n음악·영상과 정확히 맞춘 쇼(콘서트, 뮤지컬)에서 핵심적으로 쓰입니다.\n\n상단 [Timecode] 탭으로 이동하세요.',
+          en: 'Timecode plays a pre-written list of "fire this Go at this second" automatically.\nIt’s essential for shows tightly synced to music/video (concerts, musicals).\n\nGo to the [Timecode] tab at the top.',
+        },
+      },
+      {
+        type: 'task',
+        title: { ko: '큐 2개 이상 준비', en: 'Have at least 2 cues' },
+        body: {
+          ko: '타임코드가 넘길 큐가 필요합니다. 큐가 2개 미만이면 Live 로 돌아가 Store Cue 1, Store Cue 2 로 만들어 주세요.\n(앞 레슨에서 이미 만들었다면 통과됩니다.)',
+          en: 'Timecode needs cues to step through. If you have fewer than 2, go back to Live and Store Cue 1 and Cue 2.\n(If you made them earlier, this passes already.)',
+        },
+        hint: 'Store Cue 1 / Store Cue 2',
+        check: (show) => { const s = show.sequences.get(show.selectedSequenceId); return !!(s && s.cues.length >= 2); },
+      },
+      {
+        type: 'task',
+        title: { ko: '예제 타임코드 만들기', en: 'Create example timecode' },
+        body: {
+          ko: 'Timecode 탭에서 [예제 채우기 / Load example] 버튼을 누르세요.\n큐 개수만큼 Go 이벤트가 시간 축에 자동 배치됩니다.',
+          en: 'On the Timecode tab press [Load example].\nGo events are placed on the timeline, one per cue.',
+        },
+        hint: { ko: '예제 채우기 버튼', en: 'Load example button' },
+        check: (show) => (show.timecodeEvents || []).length >= 2,
+      },
+      {
+        type: 'task',
+        title: { ko: '▶ 재생!', en: '▶ Play!' },
+        body: {
+          ko: '▶ 버튼을 눌러 타임코드를 재생하세요. 재생 위치가 지나가며 큐가 자동으로 바뀌는 것을 보세요.\n(Live 탭에서 3D 무대를 함께 보면 더 좋습니다.)',
+          en: 'Press ▶ to play. Watch the playhead trigger cues automatically.\n(Open the Live tab to watch the 3D stage at the same time.)',
+        },
+        hint: { ko: '▶ (재생) 버튼', en: '▶ (play) button' },
+        check: (show, ctx) => !!(ctx.timecode && ctx.timecode.playing),
+      },
+      {
+        type: 'info',
+        title: { ko: '수료를 축하합니다 🎉', en: 'Congratulations 🎉' },
+        body: {
+          ko: '패치 → 프로그래밍 → 큐 → 익스큐터 재생 → 타임코드까지 핵심 워크플로우를 모두 익혔습니다!\n\n· 큐는 이제 fade 시간 동안 부드럽게 크로스페이드됩니다.\n· [Glossary] 용어집과 [Quiz] 로 복습하세요.\n· 쇼파일은 상단 Save 로 저장할 수 있습니다.\n\n무대감독으로서 조명팀과 소통할 기본기가 갖춰졌습니다. 화이팅!',
+          en: 'You’ve learned the whole core workflow: Patch → Program → Cue → Executor playback → Timecode!\n\n· Cues now crossfade smoothly over their fade time.\n· Review with the Glossary and Quiz.\n· Save your show with the Save button.\n\nYou now have the fundamentals to communicate with the lighting team. Good luck!',
         },
       },
     ],
