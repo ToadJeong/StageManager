@@ -17,6 +17,10 @@ import { PatchView } from './ui/patchView.js';
 import { GlossaryView, QuizView } from './ui/glossaryQuiz.js';
 import { TipsView } from './ui/tipsView.js';
 import { TimecodeView } from './ui/timecodeView.js';
+import { ConsoleView } from './ui/consoleView.js';
+import { IOPanel } from './ui/ioPanel.js';
+import { MidiInput } from './io/midi.js';
+import { OscInput } from './io/osc.js';
 import { Timecode } from './engine/timecode.js';
 import { Tutorial } from './tutorial/tutorial.js';
 
@@ -51,6 +55,12 @@ function boot() {
   const tips = new TipsView($('#view-tips'));
   const timecode = new Timecode(show);
   const timecodeView = new TimecodeView(show, timecode, $('#view-timecode'));
+  const consoleView = new ConsoleView(show, $('#view-console'));
+  // MIDI / OSC 입력 + 제어 패널(콘솔 화면에 표시)
+  const midi = new MidiInput(show);
+  const osc = new OscInput(show);
+  const ioPanel = new IOPanel(consoleView.el.querySelector('#con-io'), midi, osc);
+  window.__midi = midi; window.__osc = osc; // 디버그용
   const tutorial = new Tutorial(show, $('#tutorialPanel'));
   tutorial.ctx.timecode = timecode; // 튜토리얼이 타임코드 상태를 검사할 수 있게
 
@@ -62,6 +72,7 @@ function boot() {
     const out = computeOutput(show, now);
     sheet.update(out.values, out.sources);
     encoder.update(out.values);
+    consoleView.update(out.values);
     stage.update(show, out.values);
   }
   function refreshOutput() {
@@ -101,7 +112,7 @@ function boot() {
 
   // ── 뷰 전환
   // 'tutorial' 은 별도 화면이 아니라 Live 화면 + 우측 튜토리얼 패널을 켜는 모드.
-  const sections = ['live', 'patch', 'timecode', 'tips', 'glossary', 'quiz'];
+  const sections = ['live', 'console', 'patch', 'timecode', 'tips', 'glossary', 'quiz'];
   function setView(name) {
     const sectionName = name === 'tutorial' ? 'live' : name;
     sections.forEach((v) => {
@@ -115,6 +126,7 @@ function boot() {
     $('#tutorialPanel').classList.toggle('visible', tutOpen);
     $('#app').classList.toggle('tut-open', tutOpen);
     if (sectionName === 'live') setTimeout(() => stage.resize(), 30);
+    if (name === 'console') consoleView.refresh();
     localStorage.setItem('ma3sim.view', name);
   }
   document.querySelectorAll('.view-tab').forEach((t) =>

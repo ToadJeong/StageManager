@@ -8,15 +8,8 @@
  */
 import { executeCommand } from '../engine/commandLine.js';
 import { bus, EVT } from '../engine/eventBus.js';
+import { buildKeypad } from './keypad.js';
 import { bi, tt, toast } from '../i18n.js';
-
-// 가상 하드웨어 키 배치 (MA3 키패드 느낌)
-const KEY_ROWS = [
-  [['Fixture', 'k'], ['Group', 'k'], ['7', 'n'], ['8', 'n'], ['9', 'n'], ['Thru', 'k']],
-  [['Cue', 'k'], ['Store', 'k'], ['4', 'n'], ['5', 'n'], ['6', 'n'], ['+', 'o']],
-  [['Go', 'k'], ['Off', 'k'], ['1', 'n'], ['2', 'n'], ['3', 'n'], ['-', 'o']],
-  [['At', 'k'], ['Full', 'k'], ['0', 'n'], ['.', 'n'], ['Clear', 'c'], ['Please', 'p']],
-];
 
 export class CommandBar {
   constructor(show, els) {
@@ -31,20 +24,7 @@ export class CommandBar {
   }
 
   _buildKeys(container) {
-    container.innerHTML = '';
-    for (const row of KEY_ROWS) {
-      const r = document.createElement('div');
-      r.className = 'key-row';
-      for (const [label, kind] of row) {
-        const btn = document.createElement('button');
-        btn.className = `hw-key hw-${kind}`;
-        btn.textContent = label;
-        btn.dataset.key = label;
-        btn.onclick = () => this._pressKey(label);
-        r.appendChild(btn);
-      }
-      container.appendChild(r);
-    }
+    buildKeypad(container, (label) => this._pressKey(label));
   }
 
   _bindInput() {

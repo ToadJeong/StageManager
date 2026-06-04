@@ -6,6 +6,7 @@ import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import dgram from 'node:dgram';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.argv.includes('--dev');
@@ -82,6 +83,58 @@ ipcMain.handle('show:load', async () => {
 // ── IPC: 외부 링크를 기본 브라우저로 ─────────────
 ipcMain.handle('open-external', async (_e, url) => {
   if (/^https?:\/\//i.test(url)) await shell.openExternal(url);
+  return { ok: true };
+});
+
+// ── OSC (UDP) 수신 서버 ───────────────────────────
+let oscSocket = null;
+
+/** 최소 OSC 파서: 단일 메시지(주소 + ,타입태그 + 인자 f/i/s). 번들은 첫 메시지만. */
+function parseOsc(buf) {
+  let o = 0;
+  const readStr = () => {
+    let end = o; while (end < buf.length && buf[end] !== 0) end++;
+    const s = buf.toString('ascii', o, end);
+    o = (end + 1 + 3) & ~3; // null + 4바이트 패딩
+    return s;
+  };
+  if (buf[0] === 0x23) return null; // '#bundle' 미지원(단순화)
+  const address = readStr();
+  if (address[0] !== '/') return null;
+  let types = '';
+  if (buf[o] === 0x2c) types = readStr().slice(1); // ',ffs' → 'ffs'
+  const args = [];
+  for (const t of types) {
+    if (t === 'f') { args.push(buf.readFloatBE(o)); o += 4; }
+    else if (t === 'i') { args.push(buf.readInt32BE(o)); o += 4; }
+    else if (t === 's') { args.push(readStr()); }
+  }
+  return { address, args };
+}
+
+ipcMain.handle('osc:start', async (_e, port) => {
+  try {
+    if (oscSocket) { try { oscSocket.close(); } catch { /* */ } oscSocket = null; }
+    const sock = dgram.createSocket('udp4');
+    sock.on('message', (msg) => {
+      try {
+        const parsed = parseOsc(msg);
+        if (parsed && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('osc-message', parsed);
+      } catch { /* ignore malformed */ }
+    });
+    await new Promise((resolve, reject) => {
+      sock.once('error', reject);
+      sock.bind(port || 8000, () => resolve());
+    });
+    oscSocket = sock;
+    return { ok: true, port: port || 8000 };
+  } catch (err) {
+    return { ok: false, error: String(err.message || err) };
+  }
+});
+
+ipcMain.handle('osc:stop', async () => {
+  if (oscSocket) { try { oscSocket.close(); } catch { /* */ } oscSocket = null; }
   return { ok: true };
 });
 

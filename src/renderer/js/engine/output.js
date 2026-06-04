@@ -111,6 +111,10 @@ export function computeOutput(show, now = (typeof performance !== 'undefined' ? 
       }
     }
 
+    // 4) 그랜드마스터(전체 디머 스케일)
+    const gm = (show.grandMaster ?? 100) / 100;
+    if (gm < 1 && out.Dimmer !== undefined) out.Dimmer *= gm;
+
     values.set(fx.fixtureId, out);
     sources.set(fx.fixtureId, src);
   }

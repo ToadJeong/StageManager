@@ -44,7 +44,16 @@ export class Show {
     /** 타임코드 이벤트 목록 (영속화 대상): {id,time,buttonNo,action} */
     this.timecodeEvents = [];
     this.timecodeDuration = 20;
+    /** 그랜드마스터 0~100 (전체 디머 출력 마스터) */
+    this.grandMaster = 100;
     this._nextFixtureId = 1;
+  }
+
+  /** 그랜드마스터 설정(전체 디머 스케일). */
+  setGrandMaster(v) {
+    this.grandMaster = Math.max(0, Math.min(100, v));
+    bus.emit(EVT.EXEC_CHANGED, { grandMaster: true });
+    this._emitOutput();
   }
 
   // ──────────────────────────────────────────────────────────
@@ -380,6 +389,7 @@ export class Show {
       selectedSequenceId: this.selectedSequenceId,
       timecodeEvents: this.timecodeEvents,
       timecodeDuration: this.timecodeDuration,
+      grandMaster: this.grandMaster,
     };
   }
 
@@ -395,6 +405,7 @@ export class Show {
     this.selectedSequenceId = data.selectedSequenceId || 1;
     this.timecodeEvents = data.timecodeEvents || [];
     this.timecodeDuration = data.timecodeDuration || 20;
+    this.grandMaster = data.grandMaster ?? 100;
     bus.emit(EVT.SHOW_LOADED, {});
     bus.emit(EVT.PATCH_CHANGED, {});
     this._emitOutput();
