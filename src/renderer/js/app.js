@@ -175,6 +175,57 @@ function boot() {
   });
   $('#themeToggle').onclick = () => stage.toggleTheme();
 
+  // ── 무대 모형(OBJ/glTF) 가져오기
+  $('#modelBtn').onclick = () => $('#modelFile').click();
+  $('#modelFile').onchange = (e) => { const f = e.target.files[0]; if (f) loadModelFile(f); e.target.value = ''; };
+
+  function loadModelFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const reader = new FileReader();
+    if (ext === 'obj') {
+      reader.onload = () => { try { stage.loadSceneryOBJ(reader.result); toast({ ko: '무대 모형 로드됨', en: 'Scenery loaded' }); } catch { toast({ ko: '모형 로드 실패', en: 'Failed to load model' }, 'err'); } };
+      reader.readAsText(file);
+    } else if (ext === 'glb') {
+      reader.onload = () => { try { stage.loadSceneryGLTF(reader.result); toast({ ko: '무대 모형 로드됨', en: 'Scenery loaded' }); } catch { toast({ ko: '모형 로드 실패', en: 'Failed to load model' }, 'err'); } };
+      reader.readAsArrayBuffer(file);
+    } else if (ext === 'gltf') {
+      reader.onload = () => { try { stage.loadSceneryGLTF(reader.result); toast({ ko: '무대 모형 로드됨', en: 'Scenery loaded' }); } catch { toast({ ko: '모형 로드 실패', en: 'Failed to load model' }, 'err'); } };
+      reader.readAsText(file);
+    }
+  }
+
+  // ── 통합 드래그앤드롭: 파일을 끌어다 놓으면 형식별로 자동 처리
+  function guide(msg) { alert(typeof msg === 'string' ? msg : `${msg.ko}\n\n${msg.en}`); }
+  window.addEventListener('dragover', (e) => { e.preventDefault(); });
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const reader = new FileReader();
+    switch (ext) {
+      case 'dwg':
+        guide({ ko: 'DWG(오토캐드 원본)는 직접 읽을 수 없습니다.\n캐드에서 DXF로 내보낸 뒤(SAVEAS→DXF, 또는 무료 ODA File Converter), Patch 탭의 [DXF 도면 가져오기]를 사용하세요.', en: 'DWG (native AutoCAD) can’t be read directly.\nExport it to DXF (SAVEAS→DXF or the free ODA File Converter), then use Patch → Import DXF.' });
+        break;
+      case 'skp':
+        guide({ ko: 'SketchUp(.skp)는 직접 읽을 수 없습니다.\nSketchUp에서 OBJ 또는 glTF로 내보낸 뒤, 3D 화면의 [🏛 Model] 버튼으로 무대 배경을 불러오세요.', en: 'SketchUp (.skp) can’t be read directly.\nExport to OBJ or glTF, then load it as scenery via the [🏛 Model] button on the 3D view.' });
+        break;
+      case 'obj': case 'gltf': case 'glb':
+        loadModelFile(file); break;
+      case 'dxf':
+        reader.onload = () => patch._onDxf(reader.result); reader.readAsText(file); break;
+      case 'mvr':
+        reader.onload = () => patch._onMvr(reader.result); reader.readAsArrayBuffer(file); break;
+      case 'csv':
+        reader.onload = () => patch._importCSV(reader.result); reader.readAsText(file); break;
+      case 'json':
+        reader.onload = () => { try { show.loadJSON(JSON.parse(reader.result)); toast({ ko: '쇼파일 불러옴', en: 'Show loaded' }); } catch { toast({ ko: '파일 오류', en: 'Invalid file' }, 'err'); } }; reader.readAsText(file); break;
+      default:
+        if (file.type.startsWith('audio/')) { timecode.setAudio(URL.createObjectURL(file), file.name); toast({ ko: `음악 로드: ${file.name}`, en: `Music: ${file.name}` }); }
+        else toast({ ko: `지원하지 않는 형식: .${ext}`, en: `Unsupported: .${ext}` }, 'err');
+    }
+  });
+
   // ── 창 크기 변경 시 3D 리사이즈
   window.addEventListener('resize', () => stage.resize());
   setTimeout(() => stage.resize(), 50);

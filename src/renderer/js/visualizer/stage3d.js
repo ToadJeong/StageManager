@@ -10,6 +10,8 @@
  *  - 출력값에 따라 빔 콘·바닥 풀·무빙 회전·줌이 실시간 반영
  */
 import * as THREE from '../../vendor/three.module.js';
+import { OBJLoader } from '../../vendor/loaders/OBJLoader.js';
+import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { FixtureLibrary } from '../engine/fixtureLibrary.js';
 
 const THEMES = {
@@ -354,6 +356,44 @@ export class Stage3D {
     rig.pool.position.set(origin.x + dir.x * tt, 0.02, origin.z + dir.z * tt);
     const s = THREE.MathUtils.clamp(tt / 12, 0.6, 1.8) * rig.beam.scale.x;
     rig.pool.scale.set(s, s, s);
+  }
+
+  // ── 무대 모형(세트) 가져오기 — SketchUp 등에서 내보낸 OBJ/glTF ──
+  loadSceneryOBJ(text) {
+    const obj = new OBJLoader().parse(text);
+    this._setScenery(obj);
+  }
+
+  loadSceneryGLTF(data) {
+    // data: ArrayBuffer(.glb) 또는 JSON 문자열(.gltf)
+    new GLTFLoader().parse(
+      data, '',
+      (gltf) => this._setScenery(gltf.scene),
+      (err) => { console.error('glTF parse error', err); }
+    );
+  }
+
+  clearScenery() {
+    if (this.scenery) { this.scene.remove(this.scenery); this.scenery = null; }
+  }
+
+  _setScenery(object3d) {
+    this.clearScenery();
+    // 무대 폭(~22유닛)에 맞춰 스케일·중앙·바닥 정렬
+    const box = new THREE.Box3().setFromObject(object3d);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = 22 / maxDim;
+    object3d.scale.setScalar(scale);
+    // 스케일 후 다시 계산해 바닥/중앙 정렬
+    object3d.position.sub(center.multiplyScalar(scale));
+    const box2 = new THREE.Box3().setFromObject(object3d);
+    object3d.position.y -= box2.min.y; // 바닥(y=0)에 안착
+    // 너무 어두운 기본 머티리얼이면 보이도록 약간 보정
+    object3d.traverse((c) => { if (c.isMesh && c.material) { c.material.side = THREE.DoubleSide; } });
+    this.scenery = object3d;
+    this.scene.add(object3d);
   }
 
   resize() {
