@@ -284,6 +284,21 @@ h2 { color: var(--amber); }
 .tc-table th { color: var(--muted); }
 .tc-del { background: transparent; border: 1px solid var(--line); color: var(--red); border-radius: 4px; padding: 2px 8px; }
 
+/* ── Tips 화면 ─────────────────────────────── */
+#view-tips { padding: 16px 22px; }
+.tips-wrap { max-width: 860px; }
+.tip-sec { margin-bottom: 22px; }
+.tip-sec h2 { color: var(--amber); border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.tip-item { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 10px 14px; margin-bottom: 10px; }
+.tip-title { font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.tip-body { font-size: 13px; line-height: 1.6; color: var(--text); }
+.tip-practice { margin-top: 8px; font-size: 12.5px; color: var(--green); background: #122017; border: 1px solid #1e3a28; border-radius: 5px; padding: 6px 9px; }
+.tip-links { list-style: none; padding: 0; }
+.tip-links li { padding: 7px 0; border-bottom: 1px dashed #20262e; display: flex; flex-direction: column; gap: 2px; }
+.tip-link { color: var(--amber); text-decoration: none; font-weight: 600; }
+.tip-link:hover { text-decoration: underline; }
+.tip-url { font-size: 11px; color: var(--muted); }
+
 /* ── 튜토리얼 패널 ─────────────────────────── */
 #tutorialPanel {
   position: fixed; top: 86px; right: 0; bottom: 0; width: 330px;

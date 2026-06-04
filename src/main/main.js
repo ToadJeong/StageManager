@@ -2,7 +2,7 @@
  * main.js — Electron 메인 프로세스 (ESM)
  * 윈도우 생성 + 쇼파일 저장/불러오기 IPC.
  */
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -77,6 +77,12 @@ ipcMain.handle('show:load', async () => {
   if (canceled || !filePaths.length) return { ok: false };
   const data = await fs.readFile(filePaths[0], 'utf-8');
   return { ok: true, data };
+});
+
+// ── IPC: 외부 링크를 기본 브라우저로 ─────────────
+ipcMain.handle('open-external', async (_e, url) => {
+  if (/^https?:\/\//i.test(url)) await shell.openExternal(url);
+  return { ok: true };
 });
 
 app.whenReady().then(createWindow);

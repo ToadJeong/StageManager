@@ -7,4 +7,5 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('ma3', {
   saveShow: (data) => ipcRenderer.invoke('show:save', data),
   loadShow: () => ipcRenderer.invoke('show:load'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
 });

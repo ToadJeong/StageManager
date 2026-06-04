@@ -15,6 +15,7 @@ import { EncoderBar } from './ui/encoderBar.js';
 import { ExecutorBar } from './ui/executorBar.js';
 import { PatchView } from './ui/patchView.js';
 import { GlossaryView, QuizView } from './ui/glossaryQuiz.js';
+import { TipsView } from './ui/tipsView.js';
 import { TimecodeView } from './ui/timecodeView.js';
 import { Timecode } from './engine/timecode.js';
 import { Tutorial } from './tutorial/tutorial.js';
@@ -47,6 +48,7 @@ function boot() {
   window.__patch = patch; // 디버그용
   const glossary = new GlossaryView($('#view-glossary'));
   const quiz = new QuizView(show, $('#view-quiz'));
+  const tips = new TipsView($('#view-tips'));
   const timecode = new Timecode(show);
   const timecodeView = new TimecodeView(show, timecode, $('#view-timecode'));
   const tutorial = new Tutorial(show, $('#tutorialPanel'));
@@ -99,7 +101,7 @@ function boot() {
 
   // ── 뷰 전환
   // 'tutorial' 은 별도 화면이 아니라 Live 화면 + 우측 튜토리얼 패널을 켜는 모드.
-  const sections = ['live', 'patch', 'timecode', 'glossary', 'quiz'];
+  const sections = ['live', 'patch', 'timecode', 'tips', 'glossary', 'quiz'];
   function setView(name) {
     const sectionName = name === 'tutorial' ? 'live' : name;
     sections.forEach((v) => {
