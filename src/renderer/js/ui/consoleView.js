@@ -23,10 +23,10 @@ const PLAYBACKS = Array.from({ length: 15 }, (_, i) => 201 + i);
 //  action: ins=커맨드라인 삽입 / run / clear / go / goback / off / highlight / home / na(미구현)
 const FN_KEYS = [
   ['Setup', 'fn', 'na'], ['Backup', 'fn', 'na'], ['Menu', 'fn', 'na'], ['Esc', 'fn', 'na'],
-  ['Store', 'data', 'ins'], ['Update', 'fn', 'update'], ['Edit', 'fn', 'na'], ['Delete', 'data', 'ins'],
+  ['Store', 'data', 'ins'], ['Update', 'fn', 'update'], ['Edit', 'special', 'blind'], ['Delete', 'data', 'ins'],
   ['Copy', 'fn', 'na'], ['Move', 'fn', 'na'], ['Label', 'fn', 'na'], ['Oops', 'special', 'oops'],
-  ['Fixture', 'data', 'ins'], ['Group', 'data', 'ins'], ['Sequ', 'data', 'na'], ['Preset', 'data', 'ins'],
-  ['Cue', 'data', 'ins'], ['Exec', 'data', 'na'], ['Page', 'data', 'ins'], ['Macro', 'data', 'na'],
+  ['Fixture', 'data', 'ins'], ['Group', 'data', 'ins'], ['Sequ', 'data', 'ins'], ['Preset', 'data', 'ins'],
+  ['Cue', 'data', 'ins'], ['Exec', 'data', 'ins'], ['Page', 'data', 'ins'], ['Macro', 'data', 'na'],
   ['Goto', 'transport', 'na'], ['Select', 'fn', 'na'], ['Align', 'fn', 'na'], ['Time', 'fn', 'na'],
   ['Highlight', 'special', 'highlight'], ['Solo', 'special', 'na'], ['Home', 'special', 'home'], ['Off', 'transport', 'off'],
 ];
@@ -227,6 +227,10 @@ export class ConsoleView {
       case 'oops':
         toast(this.show.undo() ? { ko: 'Oops — 되돌림', en: 'Oops — undone' } : { ko: '되돌릴 동작 없음', en: 'Nothing to undo' });
         break;
+      case 'blind':
+        this.show.setBlind(!this.show.blind);
+        toast(this.show.blind ? { ko: 'Blind ON — 편집이 라이브에 반영 안 됨', en: 'Blind ON — edits do not affect live' } : { ko: 'Blind OFF', en: 'Blind OFF' });
+        break;
       case 'update': {
         const r = this.show.updateActiveCue();
         toast(r.ok ? { ko: `Cue ${r.cueNo} 업데이트됨`, en: `Updated Cue ${r.cueNo}` }
@@ -258,8 +262,11 @@ export class ConsoleView {
     const info = this.el.querySelector('#con-info');
     const sel = this.show.selection;
     let progCount = 0; for (const m of this.show.programmer.values()) if (Object.keys(m).length) progCount++;
+    const editKey = this.el.querySelector('.ma3-key[data-label="Edit"]');
+    if (editKey) editKey.classList.toggle('active', this.show.blind);
+    const blindBadge = this.show.blind ? `<span class="con-blind">BLIND</span> ` : '';
     if (info) info.innerHTML =
-      `${bi('선택', 'Sel')}: <b>${sel.length}</b> &nbsp; ${bi('프로그래머', 'Prog')}: <b>${progCount}</b><br>` +
+      blindBadge + `${bi('선택', 'Sel')}: <b>${sel.length}</b> &nbsp; ${bi('프로그래머', 'Prog')}: <b>${progCount}</b><br>` +
       `${sel.length ? 'Fx ' + sel.slice(0, 14).join(',') + (sel.length > 14 ? '…' : '') : tt({ ko: '선택 없음', en: 'nothing selected' })}`;
 
     const pbinfo = this.el.querySelector('#con-pbinfo');

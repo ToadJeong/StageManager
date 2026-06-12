@@ -135,6 +135,7 @@ code { font-family: "Cascadia Code", Consolas, monospace; }
 .fx-dim small { font-size: 10px; }
 .fx-dim.src-programmer { color: var(--prog); }
 .fx-dim.src-cue { color: var(--cue); }
+.fx-dim.src-effect { color: #c08bff; }
 .fx-dim.src-home { color: var(--home); }
 .fx-bottom { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 14px; }
 .fx-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid #0006; }
@@ -353,6 +354,27 @@ h2 { color: var(--amber); }
 .ma3-page { float: right; display: inline-flex; align-items: center; gap: 6px; }
 .ma3-page button { background: #141922; border: 1px solid #2a323d; color: var(--ma3-bluetext); border-radius: 4px; padding: 1px 7px; font-size: 11px; }
 .ma3-page b { color: #cfe0f5; font-size: 10px; letter-spacing: 1px; }
+
+/* 콘솔 Blind 배지 / 키 활성 */
+.ma3-key.active { background: linear-gradient(#7a5b13, #4a3a10); color: #ffd27f; box-shadow: 0 0 0 1px #ffd27f inset; }
+.con-blind { background: #ffd27f; color: #1a1207; font-weight: 700; padding: 0 6px; border-radius: 3px; font-size: 10px; }
+
+/* ── FX(이펙트) 화면 ───────────────────────── */
+#view-fx { padding: 16px 22px; }
+.fx-wrap { max-width: 640px; }
+.fx-wrap h2 { color: var(--amber); }
+.fx-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.fx-add { background: var(--bg3); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 10px 14px; font-weight: 600; }
+.fx-add:hover { border-color: var(--amber-dim); }
+.fx-stop { background: var(--bg3); border: 1px solid var(--red); color: var(--red); border-radius: 6px; padding: 10px 14px; font-weight: 600; }
+.fx-sliders { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.fx-sliders label { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.fx-sliders input[type=range] { flex: 1; accent-color: var(--amber); }
+.fx-sliders span { width: 38px; text-align: right; color: var(--text); }
+.fx-run-h { font-size: 13px; color: var(--muted); }
+.fx-runs { display: flex; flex-direction: column; gap: 6px; }
+.fx-run { display: flex; justify-content: space-between; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; }
+.fx-rm { background: transparent; border: 1px solid var(--line); color: var(--red); border-radius: 4px; padding: 2px 8px; }
 
 /* ── Presets 화면 ──────────────────────────── */
 #view-presets { padding: 16px 22px; }

@@ -44,8 +44,9 @@ const KW = {
   out: ['out', 'zero'],
   store: ['store'],
   cue: ['cue', 'q'],
-  sequence: ['sequence', 'seq'],
+  sequence: ['sequence', 'sequ', 'seq'],
   executor: ['executor', 'exec', 'x'],
+  assign: ['assign'],
   delete: ['delete', 'del'],
   clear: ['clear', 'clr'],
   go: ['go'],
@@ -190,7 +191,7 @@ export function executeCommand(show, commandStr) {
           seqId = tokens[i + 3].v;
           show.selectedSequenceId = seqId;
         }
-        if (!show.hasProgrammerValues()) {
+        if (!show.hasProgrammerValues() && !(show.effects && show.effects.length)) {
           return { ok: false, message: msg('프로그래머가 비어있음 — 먼저 값을 만드세요', 'Programmer empty — set values first') };
         }
         show.storeCue(noTok.v, seqId, { merge: true });
@@ -244,6 +245,25 @@ export function executeCommand(show, commandStr) {
       const verb = isKw(first, 'go') ? 'Go' : isKw(first, 'goback') ? 'GoBack' : 'Off';
       return { ok: true, message: msg(`Executor ${buttonNo} ${verb}`, `Executor ${buttonNo} ${verb}`) };
     }
+  }
+
+  // ── Sequence <n> (Store 대상 시퀀스 선택) ────────────────
+  if (isKw(first, 'sequence') && tokens[1] && tokens[1].t === 'num') {
+    show.selectedSequenceId = tokens[1].v;
+    show.ensureSequence(tokens[1].v);
+    return { ok: true, message: msg(`시퀀스 ${tokens[1].v} 선택`, `Selected Sequence ${tokens[1].v}`) };
+  }
+
+  // ── Assign [Sequence s] Executor n  /  Assign Executor n [Sequence s] ──
+  if (isKw(first, 'assign')) {
+    let seqId = show.selectedSequenceId, btn = null;
+    for (let k = 1; k < tokens.length; k++) {
+      if (isKw(tokens[k], 'sequence') && tokens[k + 1] && tokens[k + 1].t === 'num') { seqId = tokens[k + 1].v; k++; }
+      else if (isKw(tokens[k], 'executor') && tokens[k + 1] && tokens[k + 1].t === 'num') { btn = tokens[k + 1].v; k++; }
+    }
+    if (btn == null) return { ok: false, message: msg('Assign Executor <번호> 필요', 'Need: Assign Executor <no>') };
+    show.assignExecutor(btn, seqId);
+    return { ok: true, message: msg(`Executor ${btn} ← Sequence ${seqId} 할당`, `Assigned Executor ${btn} ← Sequence ${seqId}`) };
   }
 
   // ── Page <n> ─────────────────────────────────────────────

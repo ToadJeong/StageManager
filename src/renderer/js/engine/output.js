@@ -15,6 +15,40 @@ import { FixtureLibrary, getAttrDef, toDmx } from './fixtureLibrary.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+function hsvToRgb(h, s, v) {
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const m = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+  return m;
+}
+
+/**
+ * 이펙트(Phaser) 한 개를 한 픽스처에 적용 — 시간 기반 파형.
+ * kind: dimmerChase / rainbow / circle
+ * 그룹 내 인덱스(idx)로 위상을 분산해 체이스/원형을 만든다.
+ */
+function applyEffect(out, src, typeId, kind, idx, count, now, rateBPM, size, srcTag) {
+  const ph = (now / 1000) * ((rateBPM || 60) / 60) * 2 * Math.PI + idx * (2 * Math.PI / Math.max(1, count));
+  const set = (attr, val) => {
+    const def = getAttrDef(typeId, attr);
+    if (!def) return;
+    out[attr] = Math.max(def.min, Math.min(def.max, val));
+    src[attr] = srcTag;
+  };
+  if (kind === 'dimmerChase') {
+    set('Dimmer', (size ?? 100) * (0.5 + 0.5 * Math.sin(ph)));
+  } else if (kind === 'rainbow') {
+    const h = ((ph / (2 * Math.PI)) % 1 + 1) % 1;
+    const [r, g, b] = hsvToRgb(h, 1, 1);
+    set('ColorRGB_R', r * 100); set('ColorRGB_G', g * 100); set('ColorRGB_B', b * 100);
+    set('Cyan', (1 - r) * 100); set('Magenta', (1 - g) * 100); set('Yellow', (1 - b) * 100);
+  } else if (kind === 'circle') {
+    const deg = (size ?? 100) * 0.5; // 0..50°
+    set('Pan', deg * Math.cos(ph));
+    set('Tilt', deg * 0.6 * Math.sin(ph));
+  }
+}
+
 /** 익스큐터의 페이드 진행도 0..1. */
 export function execProgress(exec, now) {
   if (!exec.fadeDur || exec.fadeDur <= 0) return 1;
@@ -102,13 +136,33 @@ export function computeOutput(show, now = (typeof performance !== 'undefined' ? 
       }
     }
 
-    // 3) Programmer (최우선, 페이드 없음)
+    // 2b) 익스큐터 큐에 저장된 이펙트(Phaser) 적용
+    for (const { exec } of contribs) {
+      if (!exec.on || exec.cueIndex < 0) continue;
+      const seq = show.sequences.get(exec.sequenceId);
+      const cue = seq && seq.cues[exec.cueIndex];
+      if (!cue || !cue.effects) continue;
+      for (const eff of cue.effects) {
+        const idx = eff.fixtureIds.indexOf(fx.fixtureId);
+        if (idx < 0) continue;
+        applyEffect(out, src, fx.type, eff.kind, idx, eff.fixtureIds.length, now, eff.rateBPM, eff.size, 'cue');
+      }
+    }
+
+    // 3) Programmer (Blind 모드면 라이브 출력에서 제외)
     const pm = show.programmer.get(fx.fixtureId);
-    if (pm) {
+    if (pm && !show.blind) {
       for (const attrName in pm) {
         out[attrName] = pm[attrName];
         src[attrName] = 'programmer';
       }
+    }
+
+    // 3b) 라이브 이펙트(Phaser) — 최우선
+    for (const eff of show.effects) {
+      const idx = eff.fixtureIds.indexOf(fx.fixtureId);
+      if (idx < 0) continue;
+      applyEffect(out, src, fx.type, eff.kind, idx, eff.fixtureIds.length, now, show.fxRateBPM, show.fxSize, 'effect');
     }
 
     // 4) 그랜드마스터(전체 디머 스케일)

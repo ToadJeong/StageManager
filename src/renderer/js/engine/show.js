@@ -56,7 +56,61 @@ export class Show {
     this.timecodeDuration = 20;
     /** 그랜드마스터 0~100 (전체 디머 출력 마스터) */
     this.grandMaster = 100;
+    /** 라이브 이펙트(Phaser): [{id, kind, fixtureIds}] + 전역 rate/size */
+    this.effects = [];
+    this.fxRateBPM = 60;
+    this.fxSize = 100;
+    this._nextEffectId = 1;
+    /** Blind 모드: 켜지면 프로그래머가 라이브 출력에 영향 주지 않음 */
+    this.blind = false;
     this._nextFixtureId = 1;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 이펙트 (Phaser)
+  // ──────────────────────────────────────────────────────────
+
+  addEffect(kind, ids = this.selection) {
+    if (!ids.length) return { ok: false, empty: true };
+    this.pushUndo();
+    this.effects.push({ id: this._nextEffectId++, kind, fixtureIds: [...ids] });
+    bus.emit(EVT.EXEC_CHANGED, { effect: true });
+    this._emitOutput();
+    return { ok: true };
+  }
+
+  setFxRate(bpm) { this.fxRateBPM = Math.max(1, Math.min(600, bpm)); this._emitOutput(); }
+  setFxSize(sz) { this.fxSize = Math.max(0, Math.min(100, sz)); this._emitOutput(); }
+
+  stopAllEffects() {
+    this.effects = [];
+    bus.emit(EVT.EXEC_CHANGED, { effect: true });
+    this._emitOutput();
+  }
+
+  removeEffect(id) {
+    this.effects = this.effects.filter((e) => e.id !== id);
+    bus.emit(EVT.EXEC_CHANGED, { effect: true });
+    this._emitOutput();
+  }
+
+  hasActiveEffects() {
+    if (this.effects.length) return true;
+    for (const ex of this.executors.values()) {
+      if (ex.on && ex.cueIndex >= 0) {
+        const seq = this.sequences.get(ex.sequenceId);
+        const cue = seq && seq.cues[ex.cueIndex];
+        if (cue && cue.effects && cue.effects.length) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Blind 토글. */
+  setBlind(on) {
+    this.blind = !!on;
+    bus.emit(EVT.EXEC_CHANGED, { blind: this.blind });
+    this._emitOutput();
   }
 
   // ──────────────────────────────────────────────────────────
@@ -327,19 +381,24 @@ export class Show {
     }
 
     let cue = seq.cues.find((c) => c.no === cueNo);
+    // 실행 중인 라이브 이펙트를 큐에 함께 저장(현재 rate/size 고정)
+    const fxSnapshot = this.effects.map((e) => ({ kind: e.kind, fixtureIds: [...e.fixtureIds], rateBPM: this.fxRateBPM, size: this.fxSize }));
     if (cue && opts.merge) {
       // Merge: 기존 + 프로그래머
       for (const fid in values) {
         cue.values[fid] = { ...(cue.values[fid] || {}), ...values[fid] };
       }
+      if (fxSnapshot.length) cue.effects = [...(cue.effects || []), ...fxSnapshot];
     } else if (cue) {
       cue.values = values; // 덮어쓰기
+      cue.effects = fxSnapshot;
     } else {
       cue = {
         no: cueNo,
         name: opts.name || `Cue ${cueNo}`,
         fade: opts.fade ?? 3,
         values,
+        effects: fxSnapshot,
       };
       seq.cues.push(cue);
       seq.cues.sort((a, b) => a.no - b.no);
@@ -531,6 +590,9 @@ export class Show {
       data: this.toJSON(),
       programmer: [...this.programmer.entries()].map(([id, a]) => [id, { ...a }]),
       selection: [...this.selection],
+      effects: this.effects.map((e) => ({ ...e, fixtureIds: [...e.fixtureIds] })),
+      blind: this.blind,
+      fxRateBPM: this.fxRateBPM, fxSize: this.fxSize,
     }));
     if (this._undo.length > 40) this._undo.shift();
   }
@@ -542,6 +604,10 @@ export class Show {
     this._applyData(snap.data);
     this.programmer = new Map((snap.programmer || []).map(([id, a]) => [id, { ...a }]));
     this.selection = (snap.selection || []).filter((id) => this.fixtures.has(id));
+    this.effects = (snap.effects || []).map((e) => ({ ...e, fixtureIds: [...e.fixtureIds] }));
+    this.blind = !!snap.blind;
+    if (snap.fxRateBPM != null) this.fxRateBPM = snap.fxRateBPM;
+    if (snap.fxSize != null) this.fxSize = snap.fxSize;
     bus.emit(EVT.PATCH_CHANGED, {});
     bus.emit(EVT.SELECTION_CHANGED, { selection: this.selection });
     bus.emit(EVT.PROGRAMMER_CHANGED, {});
