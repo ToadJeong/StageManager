@@ -63,7 +63,119 @@ export class Show {
     this._nextEffectId = 1;
     /** Blind 모드: 켜지면 프로그래머가 라이브 출력에 영향 주지 않음 */
     this.blind = false;
+    /** 매크로: no → {no, name, commands:[]} */
+    this.macros = new Map();
+    this._recording = null;   // {no, commands:[]}
+    this._runningMacro = false;
     this._nextFixtureId = 1;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 매크로 (Macro) — 커맨드라인 명령 녹화/재생
+  // ──────────────────────────────────────────────────────────
+
+  get recording() { return !!this._recording; }
+  get recordingNo() { return this._recording ? this._recording.no : null; }
+
+  startMacroRecord(no) {
+    this._recording = { no, commands: [] };
+    bus.emit(EVT.MACRO_CHANGED, { recording: no });
+  }
+
+  /** 앱이 COMMAND_EXECUTED 를 받아 호출 — 녹화 중이면 명령을 담는다. */
+  recordCommand(cmd) {
+    if (this._recording && !this._runningMacro && cmd) this._recording.commands.push(cmd);
+  }
+
+  stopMacroRecord(name = null) {
+    if (!this._recording) return { ok: false };
+    const { no, commands } = this._recording;
+    this.macros.set(no, { no, name: name || `Macro ${no}`, commands });
+    this._recording = null;
+    bus.emit(EVT.MACRO_CHANGED, { no });
+    return { ok: true, no, count: commands.length };
+  }
+
+  runMacro(no, execFn) {
+    const m = this.macros.get(no);
+    if (!m) return { ok: false };
+    this._runningMacro = true;
+    try { for (const cmd of m.commands) execFn(cmd); } finally { this._runningMacro = false; }
+    bus.emit(EVT.MACRO_CHANGED, { ran: no });
+    return { ok: true };
+  }
+
+  deleteMacro(no) {
+    this.macros.delete(no);
+    bus.emit(EVT.MACRO_CHANGED, { no, deleted: true });
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Copy / Move (Cue / Preset / Group)
+  // ──────────────────────────────────────────────────────────
+
+  copyCue(from, to, sequenceId = this.selectedSequenceId, move = false) {
+    const seq = this.sequences.get(sequenceId);
+    const src = seq && seq.cues.find((c) => c.no === from);
+    if (!src) return { ok: false };
+    this.pushUndo();
+    const clone = JSON.parse(JSON.stringify(src));
+    clone.no = to;
+    clone.name = src.name && !/^Cue /.test(src.name) ? src.name : `Cue ${to}`;
+    seq.cues = seq.cues.filter((c) => c.no !== to);
+    seq.cues.push(clone);
+    seq.cues.sort((a, b) => a.no - b.no);
+    if (move) seq.cues = seq.cues.filter((c) => c.no !== from);
+    bus.emit(EVT.CUE_STORED, { sequenceId, cueNo: to });
+    this._emitOutput();
+    return { ok: true };
+  }
+
+  copyPreset(type, from, to, move = false) {
+    const pool = this.presets.get(type);
+    const src = pool && pool.get(from);
+    if (!src) return { ok: false };
+    this.pushUndo();
+    const clone = JSON.parse(JSON.stringify(src));
+    clone.no = to;
+    clone.name = src.name && !new RegExp(`^${type} `).test(src.name) ? src.name : `${type} ${to}`;
+    pool.set(to, clone);
+    if (move) pool.delete(from);
+    bus.emit(EVT.PRESET_CHANGED, { type, no: to });
+    return { ok: true };
+  }
+
+  copyGroup(from, to, move = false) {
+    const src = this.groups.get(from);
+    if (!src) return { ok: false };
+    this.pushUndo();
+    this.groups.set(to, { id: to, name: src.name && !/^Group /.test(src.name) ? src.name : `Group ${to}`, fixtureIds: [...src.fixtureIds] });
+    if (move) this.groups.delete(from);
+    bus.emit(EVT.GROUP_CHANGED, { id: to });
+    return { ok: true };
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Goto — 특정 큐로 점프
+  // ──────────────────────────────────────────────────────────
+
+  execGoto(buttonNo, cueNo) {
+    const exec = this.executors.get(buttonNo);
+    if (!exec) return { ok: false };
+    const seq = this.sequences.get(exec.sequenceId);
+    if (!seq) return { ok: false };
+    const idx = seq.cues.findIndex((c) => c.no === cueNo);
+    if (idx < 0) return { ok: false };
+    exec.fadeFrom = exec.on ? (execContribution(this, exec, _now()) || {}) : {};
+    exec.on = true;
+    exec.cueIndex = idx;
+    const cue = seq.cues[idx];
+    exec.fadeStart = _now();
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
+    bus.emit(EVT.CUE_FIRED, { buttonNo, cueIndex: idx });
+    bus.emit(EVT.EXEC_CHANGED, { buttonNo });
+    this._emitOutput();
+    return { ok: true };
   }
 
   // ──────────────────────────────────────────────────────────
@@ -533,6 +645,7 @@ export class Show {
       pages: [...this.pages.entries()].map(([p, m]) => [p, [...m.values()]]),
       currentPage: this.currentPage,
       presets: [...this.presets.entries()].map(([t, m]) => [t, [...m.values()]]),
+      macros: [...this.macros.values()],
       selectedSequenceId: this.selectedSequenceId,
       timecodeEvents: this.timecodeEvents,
       timecodeDuration: this.timecodeDuration,
@@ -566,6 +679,8 @@ export class Show {
     (data.presets || []).forEach(([t, list]) => {
       const m = new Map(); (list || []).forEach((p) => m.set(p.no, p)); this.presets.set(t, m);
     });
+    this.macros = new Map();
+    (data.macros || []).forEach((m) => this.macros.set(m.no, m));
     this.selectedSequenceId = data.selectedSequenceId || 1;
     this.timecodeEvents = data.timecodeEvents || [];
     this.timecodeDuration = data.timecodeDuration || 20;

@@ -20,6 +20,7 @@ import { TimecodeView } from './ui/timecodeView.js';
 import { ConsoleView } from './ui/consoleView.js';
 import { PresetsView } from './ui/presetsView.js';
 import { FxView } from './ui/fxView.js';
+import { MacrosView } from './ui/macrosView.js';
 import { IOPanel } from './ui/ioPanel.js';
 import { MidiInput } from './io/midi.js';
 import { OscInput } from './io/osc.js';
@@ -60,6 +61,7 @@ function boot() {
   const consoleView = new ConsoleView(show, $('#view-console'));
   const presetsView = new PresetsView(show, $('#view-presets'));
   const fxView = new FxView(show, $('#view-fx'));
+  const macrosView = new MacrosView(show, $('#view-macros'));
   // MIDI / OSC 입력 + 제어 패널(콘솔 화면에 표시)
   const midi = new MidiInput(show);
   const osc = new OscInput(show);
@@ -98,6 +100,8 @@ function boot() {
     }
   }
   requestAnimationFrame(loop);
+  // 매크로 녹화: 실행된 커맨드를 녹화 버퍼에 담는다
+  bus.on(EVT.COMMAND_EXECUTED, (p) => show.recordCommand(p?.command));
   bus.on(EVT.OUTPUT_CHANGED, refreshOutput);
   bus.on(EVT.PROGRAMMER_CHANGED, refreshOutput);
   bus.on(EVT.EXEC_CHANGED, refreshOutput);
@@ -116,7 +120,7 @@ function boot() {
 
   // ── 뷰 전환
   // 'tutorial' 은 별도 화면이 아니라 Live 화면 + 우측 튜토리얼 패널을 켜는 모드.
-  const sections = ['live', 'console', 'presets', 'fx', 'patch', 'timecode', 'tips', 'glossary', 'quiz'];
+  const sections = ['live', 'console', 'presets', 'fx', 'macros', 'patch', 'timecode', 'tips', 'glossary', 'quiz'];
   function setView(name) {
     const sectionName = name === 'tutorial' ? 'live' : name;
     sections.forEach((v) => {

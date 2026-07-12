@@ -281,7 +281,12 @@ h2 { color: var(--amber); }
 /* 좌: 플레이백 */
 .ma3-playback-area { background: #0a0d12; border: 1px solid #1a212b; border-radius: 10px; padding: 8px; }
 .ma3-letterbox { font-size: 10px; letter-spacing: 2px; color: #7fa6d6; background: #04060a; border: 1px solid #16222f; border-radius: 5px; padding: 4px 8px; margin-bottom: 6px; }
+.ma3-seqchips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; min-height: 22px; }
+.seq-chip { background: #14233a; border: 1px solid #34506e; color: #9cc0f0; border-radius: 4px; padding: 3px 8px; font-size: 10px; cursor: grab; }
+.seq-chip:active { cursor: grabbing; }
+.seq-chip-empty { font-size: 10px; color: #6f7b89; }
 .ma3-execrow { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; margin-bottom: 6px; }
+.ma3-execbtn.dragover, .con-pb.dragover { outline: 2px dashed var(--ma3-blue); }
 .ma3-execbtn { background: linear-gradient(#1b212a,#11151b); border: 1px solid #2a323d; color: #6f7b89; border-radius: 4px; padding: 7px 0; font-size: 10px; font-weight: 700; }
 .ma3-execbtn.assigned { color: #9cc0f0; border-color: #34506e; }
 .ma3-execbtn.on { background: linear-gradient(#2b6b3f,#1c4c2c); color: #d6ffe2; border-color: var(--green); box-shadow: 0 0 8px -2px var(--green); }
@@ -375,6 +380,22 @@ h2 { color: var(--amber); }
 .fx-runs { display: flex; flex-direction: column; gap: 6px; }
 .fx-run { display: flex; justify-content: space-between; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; }
 .fx-rm { background: transparent; border: 1px solid var(--line); color: var(--red); border-radius: 4px; padding: 2px 8px; }
+
+/* ── Macros 화면 ───────────────────────────── */
+#view-macros { padding: 16px 22px; }
+.macros-wrap h2 { color: var(--amber); }
+.mc-recbar { background: #2a1414; border: 1px solid var(--red); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; color: #ffb4b4; font-size: 13px; }
+.mc-recbar button { background: var(--red); color: #fff; border: none; border-radius: 5px; padding: 5px 12px; margin-left: 8px; font-weight: 600; }
+.mc-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.mc-slot { position: relative; min-height: 54px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; cursor: pointer; background: var(--bg3); display: flex; flex-direction: column; gap: 2px; }
+.mc-slot.empty { opacity: 0.6; border-style: dashed; }
+.mc-slot.rec { opacity: 1; border-style: solid; border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
+.mc-slot.filled:hover { border-color: var(--amber); }
+.mc-no { font-size: 10px; color: var(--muted); }
+.mc-name { font-size: 12px; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mc-cnt { font-size: 10px; color: var(--muted); }
+.mc-recdot { color: var(--red); font-weight: 700; font-size: 11px; }
+.mc-del { position: absolute; top: 2px; right: 2px; background: transparent; border: none; color: var(--red); cursor: pointer; font-size: 11px; }
 
 /* ── Presets 화면 ──────────────────────────── */
 #view-presets { padding: 16px 22px; }

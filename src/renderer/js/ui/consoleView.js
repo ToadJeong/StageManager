@@ -24,10 +24,10 @@ const PLAYBACKS = Array.from({ length: 15 }, (_, i) => 201 + i);
 const FN_KEYS = [
   ['Setup', 'fn', 'na'], ['Backup', 'fn', 'na'], ['Menu', 'fn', 'na'], ['Esc', 'fn', 'na'],
   ['Store', 'data', 'ins'], ['Update', 'fn', 'update'], ['Edit', 'special', 'blind'], ['Delete', 'data', 'ins'],
-  ['Copy', 'fn', 'na'], ['Move', 'fn', 'na'], ['Label', 'fn', 'na'], ['Oops', 'special', 'oops'],
+  ['Copy', 'fn', 'ins'], ['Move', 'fn', 'ins'], ['Label', 'fn', 'na'], ['Oops', 'special', 'oops'],
   ['Fixture', 'data', 'ins'], ['Group', 'data', 'ins'], ['Sequ', 'data', 'ins'], ['Preset', 'data', 'ins'],
-  ['Cue', 'data', 'ins'], ['Exec', 'data', 'ins'], ['Page', 'data', 'ins'], ['Macro', 'data', 'na'],
-  ['Goto', 'transport', 'na'], ['Select', 'fn', 'na'], ['Align', 'fn', 'na'], ['Time', 'fn', 'na'],
+  ['Cue', 'data', 'ins'], ['Exec', 'data', 'ins'], ['Page', 'data', 'ins'], ['Macro', 'data', 'ins'],
+  ['Goto', 'transport', 'ins'], ['Select', 'fn', 'na'], ['Align', 'fn', 'na'], ['Time', 'fn', 'na'],
   ['Highlight', 'special', 'highlight'], ['Solo', 'special', 'na'], ['Home', 'special', 'home'], ['Off', 'transport', 'off'],
 ];
 
@@ -96,6 +96,7 @@ export class ConsoleView {
             <div class="ma3-letterbox">PLAYBACK
               <span class="ma3-page"><button id="con-pageprev">◀</button><b id="con-pageno">PAGE 1</b><button id="con-pagenext">▶</button></span>
             </div>
+            <div class="ma3-seqchips" id="con-seqchips" title="시퀀스를 익스큐터로 드래그해 할당"></div>
             <div class="ma3-execrow" id="con-execrow">${execBtns}</div>
             <div class="ma3-faderwrap">
               <div class="con-playbacks" id="con-playbacks">${faders}</div>
@@ -184,7 +185,39 @@ export class ConsoleView {
     this.el.querySelector('#con-pageprev').onclick = () => this.show.pagePrev();
     this.el.querySelector('#con-pagenext').onclick = () => this.show.pageNext();
 
+    // 시퀀스 → 익스큐터 드래그&드롭 할당
+    const chips = this.el.querySelector('#con-seqchips');
+    chips.addEventListener('dragstart', (e) => {
+      const c = e.target.closest('.seq-chip'); if (!c) return;
+      e.dataTransfer.setData('text/seq', c.dataset.seq);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    const dropAssign = (e, noAttrEl) => {
+      e.preventDefault();
+      const seqId = parseInt(e.dataTransfer.getData('text/seq'), 10);
+      const no = parseInt(noAttrEl.dataset.no, 10);
+      if (!Number.isNaN(seqId) && !Number.isNaN(no)) {
+        this.show.assignExecutor(no, seqId);
+        toast({ ko: `Executor ${no} ← Seq ${seqId}`, en: `Executor ${no} ← Seq ${seqId}` });
+      }
+    };
+    const wireDrop = (container, sel) => {
+      container.addEventListener('dragover', (e) => { if (e.target.closest(sel)) e.preventDefault(); });
+      container.addEventListener('drop', (e) => { const t = e.target.closest(sel); if (t) dropAssign(e, t); });
+    };
+    wireDrop(this.el.querySelector('#con-execrow'), '.ma3-execbtn');
+    wireDrop(this.el.querySelector('#con-playbacks'), '.con-pb');
+
     this._bindWheel(this.el.querySelector('#con-wheel'));
+  }
+
+  _renderSeqChips() {
+    const el = this.el.querySelector('#con-seqchips');
+    if (!el) return;
+    const seqs = [...this.show.sequences.values()].sort((a, b) => a.id - b.id);
+    el.innerHTML = (seqs.length ? seqs : []).map((s) =>
+      `<span class="seq-chip" draggable="true" data-seq="${s.id}">Seq ${s.id} · ${s.cues.length}q</span>`).join('')
+      || `<span class="seq-chip-empty">${bi('시퀀스 없음 (Store Cue 로 생성)', 'no sequences (Store a cue)')}</span>`;
   }
 
   _bindWheel(wheel) {
@@ -292,6 +325,7 @@ export class ConsoleView {
   }
 
   _updateFaders() {
+    this._renderSeqChips();
     const pageEl = this.el.querySelector('#con-pageno');
     if (pageEl) pageEl.textContent = `PAGE ${this.show.currentPage}`;
     for (const no of PLAYBACKS) {

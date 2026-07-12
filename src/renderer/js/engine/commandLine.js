@@ -55,6 +55,10 @@ const KW = {
   home: ['home'],
   preset: ['preset', 'pre'],
   page: ['page'],
+  goto: ['goto'],
+  copy: ['copy'],
+  move: ['move'],
+  macro: ['macro'],
 };
 
 // feature 단어 → Feature 이름
@@ -264,6 +268,54 @@ export function executeCommand(show, commandStr) {
     if (btn == null) return { ok: false, message: msg('Assign Executor <번호> 필요', 'Need: Assign Executor <no>') };
     show.assignExecutor(btn, seqId);
     return { ok: true, message: msg(`Executor ${btn} ← Sequence ${seqId} 할당`, `Assigned Executor ${btn} ← Sequence ${seqId}`) };
+  }
+
+  // ── Goto Cue <n> [Executor <e>] ──────────────────────────
+  if (isKw(first, 'goto')) {
+    let i = 1;
+    if (isKw(tokens[i], 'cue')) i++;
+    const noTok = tokens[i];
+    if (!noTok || noTok.t !== 'num') return { ok: false, message: msg('Goto Cue <번호> 형식', 'Use: Goto Cue <no>') };
+    let btn = null;
+    if (isKw(tokens[i + 1], 'executor') && tokens[i + 2] && tokens[i + 2].t === 'num') btn = tokens[i + 2].v;
+    else btn = [...show.executors.keys()].sort((a, b) => a - b)[0] ?? null;
+    if (btn == null) return { ok: false, message: msg('익스큐터 없음', 'No executor') };
+    const r = show.execGoto(btn, noTok.v);
+    return r.ok ? { ok: true, message: msg(`Executor ${btn} → Cue ${noTok.v}`, `Executor ${btn} → Cue ${noTok.v}`) }
+      : { ok: false, message: msg(`Cue ${noTok.v} 없음`, `Cue ${noTok.v} not found`) };
+  }
+
+  // ── Macro <n> ────────────────────────────────────────────
+  if (isKw(first, 'macro') && tokens[1] && tokens[1].t === 'num') {
+    const r = show.runMacro(tokens[1].v, (c) => executeCommand(show, c));
+    return r.ok ? { ok: true, message: msg(`Macro ${tokens[1].v} 실행`, `Ran Macro ${tokens[1].v}`) }
+      : { ok: false, message: msg(`Macro ${tokens[1].v} 없음`, `Macro ${tokens[1].v} not found`) };
+  }
+
+  // ── Copy / Move <Cue|Preset|Group> ... At <to> ───────────
+  if (isKw(first, 'copy') || isKw(first, 'move')) {
+    const move = isKw(first, 'move');
+    let i = 1;
+    const atIdx = tokens.findIndex((t) => isKw(t, 'at'));
+    const toTok = atIdx >= 0 ? tokens[atIdx + 1] : null;
+    if (!toTok || toTok.t !== 'num') return { ok: false, message: msg('… At <목적번호> 필요', 'Need: … At <dest no>') };
+    const to = toTok.v;
+    if (isKw(tokens[i], 'cue') && tokens[i + 1] && tokens[i + 1].t === 'num') {
+      const r = show.copyCue(tokens[i + 1].v, to, show.selectedSequenceId, move);
+      return r.ok ? { ok: true, message: msg(`Cue ${tokens[i + 1].v} → ${to}`, `Cue ${tokens[i + 1].v} → ${to}`) } : { ok: false, message: msg('원본 큐 없음', 'Source cue not found') };
+    }
+    if (isKw(tokens[i], 'preset')) {
+      const ft = featureFromTok(tokens[i + 1]);
+      const fromTok = tokens[i + 2];
+      if (!ft || !fromTok || fromTok.t !== 'num') return { ok: false, message: msg('Copy Preset <타입> <번호> At <번호>', 'Copy Preset <type> <no> At <no>') };
+      const r = show.copyPreset(ft, fromTok.v, to, move);
+      return r.ok ? { ok: true, message: msg(`${ft} Preset ${fromTok.v} → ${to}`, `${ft} Preset ${fromTok.v} → ${to}`) } : { ok: false, message: msg('원본 프리셋 없음', 'Source preset not found') };
+    }
+    if (isKw(tokens[i], 'group') && tokens[i + 1] && tokens[i + 1].t === 'num') {
+      const r = show.copyGroup(tokens[i + 1].v, to, move);
+      return r.ok ? { ok: true, message: msg(`Group ${tokens[i + 1].v} → ${to}`, `Group ${tokens[i + 1].v} → ${to}`) } : { ok: false, message: msg('원본 그룹 없음', 'Source group not found') };
+    }
+    return { ok: false, message: msg('Copy/Move 대상(Cue/Preset/Group) 필요', 'Specify Copy/Move target') };
   }
 
   // ── Page <n> ─────────────────────────────────────────────
