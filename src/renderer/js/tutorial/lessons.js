@@ -1,0 +1,366 @@
+/**
+ * lessons.js
+ * 단계별 인터랙티브 튜토리얼 데이터.
+ *
+ * 각 step:
+ *   - type: 'info'  설명만 보고 [다음] 으로 진행
+ *           'task'  check(show, ctx) 가 true 가 되면 자동 통과
+ *   - title/body: 한/영 텍스트
+ *   - hint: 막혔을 때 보여줄 힌트 (커맨드 예시)
+ *   - check(show, ctx): 과제 완료 판정. ctx.lastCommand = 마지막 실행 명령
+ *   - highlight: 강조할 UI 요소 selector (선택)
+ */
+
+function sel(show) { return show.selection.slice().sort((a, b) => a - b); }
+function eqSet(a, b) { const A = new Set(a); return b.length === A.size && b.every((x) => A.has(x)); }
+
+export const LESSONS = [
+  {
+    id: 'intro',
+    title: { ko: '0. MA3 콘솔 둘러보기', en: '0. Meet the MA3 Console' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: '환영합니다 👋', en: 'Welcome 👋' },
+        body: {
+          ko: '이 시뮬레이터는 grandMA3 조명 콘솔의 핵심 흐름을 연습하는 학습 도구입니다.\n\n화면 구성:\n· 상단 = 커맨드라인(명령어 입력)\n· 왼쪽 = Fixture Sheet(픽스처 값 표)\n· 가운데 = 3D 무대 비주얼라이저\n· 오른쪽 = Encoder Bar(어트리뷰트 조절)\n· 하단 = Executor 페이더 + 하드웨어 키',
+          en: 'This simulator teaches the core workflow of a grandMA3 console.\n\nLayout:\n· Top = Command line\n· Left = Fixture Sheet (value table)\n· Center = 3D stage visualizer\n· Right = Encoder Bar (attributes)\n· Bottom = Executor faders + hardware keys',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: 'MA3 의 사고방식', en: 'The MA3 mindset' },
+        body: {
+          ko: 'MA3 는 "무엇을(Object) → 어떻게(Function) → 얼마나(Value)" 순서로 말을 겁니다.\n예) Fixture 1 Thru 10  At  Full\n     (무엇을)            (어떻게)(얼마나)\n\n명령은 [Please](=Enter)로 실행합니다.',
+          en: 'MA3 speaks as "Object → Function → Value".\ne.g.  Fixture 1 Thru 10  At  Full\n      (object)           (fn)(value)\n\nExecute a command with [Please] (= Enter).',
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'basics',
+    title: { ko: '0.5 기초: 콘솔·전원·케이블링', en: '0.5 Basics: Console, Power & Cabling' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: 'MA3 전원 켜기 / 끄기', en: 'Powering the MA3 on / off' },
+        body: {
+          ko: '【켜기】 콘솔 뒷면 메인 전원 스위치 ON → 앞면 Power 버튼을 짧게 누름 → 부팅 대기.\n\n【끄기】 절대 전원을 그냥 뽑지 마세요(쇼파일 손상 위험).\n  Menu → Power Options → Power Off(또는 Shutdown) 로 정상 종료한 뒤 전원을 내립니다.\n  공연 중에는 항상 쇼를 Save 하고, 가능하면 USB 백업을 둡니다.',
+          en: '【On】 Rear mains switch ON → short-press the front Power button → wait for boot.\n\n【Off】 Never just pull power (risks corrupting the show).\n  Menu → Power Options → Power Off / Shutdown for a clean shutdown, then switch off mains.\n  Always Save your show and keep a USB backup.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: 'DMX 란? (DMX512)', en: 'What is DMX? (DMX512)' },
+        body: {
+          ko: 'DMX512 는 콘솔이 조명에 보내는 디지털 제어 신호입니다.\n· 한 라인(=1 Universe) 에 채널 1~512.\n· 5핀 XLR 케이블로 기구를 데이지체인(줄줄이) 연결.\n· 라인 끝에는 종단 저항(터미네이터, 120Ω) 을 답니다.\n· 한 라인에 최대 32대 권장(많으면 DMX 스플리터/노드 사용).',
+          en: 'DMX512 is the digital control signal from console to fixtures.\n· One line (= 1 Universe) carries channels 1–512.\n· Daisy-chain fixtures with 5-pin XLR cables.\n· Terminate the end of the line with a 120Ω terminator.\n· ~32 devices max per line (use a splitter/node beyond that).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '채널 · 주소(Address) 설정', en: 'Channels & Addressing' },
+        body: {
+          ko: '각 기구는 자기 데이터를 어디서 읽을지 "시작 주소"로 정합니다.\n· 기구가 쓰는 채널 수 = Footprint (예: RGB PAR = 4채널).\n· 기구 메뉴(또는 옛 장비는 DIP 스위치)에서 시작 주소를 설정.\n· 주소가 겹치면 두 기구가 똑같이 움직입니다 → 겹치지 않게!\n  예) 1번 기구 1~4 → 2번 기구는 5부터.\n콘솔의 Patch 가 "Fixture ↔ Universe/Address" 를 연결합니다(Patch 탭 참고).',
+          en: 'Each fixture reads its data from a "start address".\n· Channels a fixture uses = its Footprint (e.g. RGB PAR = 4ch).\n· Set the start address in the fixture menu (or DIP switches on older units).\n· Overlapping addresses make fixtures move identically → keep them unique!\n  e.g. fixture 1 = 1–4, so fixture 2 starts at 5.\nThe console’s Patch links Fixture ↔ Universe/Address (see the Patch tab).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: 'RDM (원격 장치 관리)', en: 'RDM (Remote Device Management)' },
+        body: {
+          ko: 'RDM 은 DMX 위에서 동작하는 양방향 통신입니다.\n· 같은 DMX 케이블로 기구의 주소·모드를 원격 설정/확인.\n· 사다리 안 타고도 패치 확인, 온도/램프상태 모니터링 가능.\n· 단, 모든 기구·스플리터가 RDM 을 지원해야 합니다(비지원 스플리터는 신호 차단).',
+          en: 'RDM is two-way communication on top of DMX.\n· Remotely set/read a fixture’s address & mode over the same DMX cable.\n· Check patch and monitor temp/lamp status without a ladder.\n· All devices/splitters in the path must support RDM (non-RDM splitters block it).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '전원: powerCON 과 배선', en: 'Power: powerCON & cabling' },
+        body: {
+          ko: 'powerCON(파워콘)은 잠금식 전원 커넥터입니다(파랑=입력 IN, 회색=출력 OUT, True1 은 활선 착탈 가능).\n· OUT → 다음 기구 IN 으로 전원도 데이지체인 가능(정격 용량 한도 내에서!).\n· 전원 데이지체인 개수는 기구 소비전력과 차단기 용량으로 결정 — 초과 금지.\n· DMX(신호)와 전원은 별개 케이블입니다. 전원 먼저, 그다음 데이터.',
+          en: 'powerCON is a locking power connector (blue = IN, grey = OUT; True1 is make/break under load).\n· Chain power OUT → next fixture IN — within the rated capacity!\n· How many you can chain depends on each fixture’s draw and the breaker — don’t exceed it.\n· DMX (data) and power are separate cables. Power first, then data.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '네트워크: sACN / Art-Net / 노드', en: 'Network: sACN / Art-Net / Nodes' },
+        body: {
+          ko: '요즘은 DMX 를 네트워크(이더넷)로 여러 Universe 전송합니다.\n· sACN(E1.31), Art-Net = 네트워크로 DMX 를 보내는 프로토콜.\n· "노드(Node)" 가 네트워크 신호를 물리 DMX(XLR)로 변환해 기구로.\n· MA3 는 MA-Net 으로 콘솔·프로세싱유닛·백업을 연결합니다.\n실제 출력 전에 콘솔에서 어떤 Universe 를 어떤 프로토콜/노드로 보낼지(Output) 설정합니다.',
+          en: 'Modern rigs send many universes over Ethernet.\n· sACN (E1.31) and Art-Net carry DMX over the network.\n· A "Node" converts network data to physical DMX (XLR) for fixtures.\n· MA3 links consoles, processing units and backup via MA-Net.\nBefore output you configure which universe goes to which protocol/node (Output settings).',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '콘솔 구역 익히기', en: 'Console sections' },
+        body: {
+          ko: 'grandMA3 콘솔의 주요 구역:\n· Command Section — 키패드/커맨드라인(이 시뮬레이터의 핵심).\n· Encoders — 어트리뷰트 미세 조정.\n· Playback Faders + 버튼 — 익스큐터(큐 재생).\n· Screens(터치) — 윈도우/뷰.\n이 시뮬레이터의 Live 화면이 이 구역들을 본떠 만들어졌습니다. 이제 실제로 만져봅시다!',
+          en: 'Main sections of a grandMA3:\n· Command Section — keypad/command line (the heart of this sim).\n· Encoders — fine attribute control.\n· Playback faders + buttons — executors (cue playback).\n· Touch screens — windows/views.\nThis simulator’s Live screen mirrors these. Now let’s actually use it!',
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'selection',
+    title: { ko: '1. 선택과 디머 (Selection & Dimmer)', en: '1. Selection & Dimmer' },
+    steps: [
+      {
+        type: 'task',
+        title: { ko: '1~5번 픽스처 선택하기', en: 'Select fixtures 1–5' },
+        body: {
+          ko: '커맨드라인에 다음을 입력하고 Please 를 누르세요:\n\n  Fixture 1 Thru 5\n\n(하단 키패드의 버튼을 눌러도 되고, 키보드로 직접 타이핑해도 됩니다.)',
+          en: 'Type this on the command line and press Please:\n\n  Fixture 1 Thru 5\n\n(Use the on-screen keys or your keyboard.)',
+        },
+        hint: 'Fixture 1 Thru 5',
+        check: (show) => eqSet(sel(show), [1, 2, 3, 4, 5]),
+      },
+      {
+        type: 'task',
+        title: { ko: '100% 로 켜기', en: 'Bring them to 100%' },
+        body: {
+          ko: '선택된 픽스처를 풀로 켭니다:\n\n  At Full\n\n3D 무대에서 불이 켜지는지 확인하세요.',
+          en: 'Set the selected fixtures to full:\n\n  At Full\n\nWatch the 3D stage light up.',
+        },
+        hint: 'At Full',
+        check: (show) => [1, 2, 3, 4, 5].every((id) => show.getProgrammerValue(id, 'Dimmer') === 100),
+      },
+      {
+        type: 'task',
+        title: { ko: '절반으로 줄이기', en: 'Dim to half' },
+        body: { ko: '같은 선택을 50% 로:\n\n  At 50', en: 'Same selection to 50%:\n\n  At 50' },
+        hint: 'At 50',
+        check: (show) => [1, 2, 3, 4, 5].every((id) => show.getProgrammerValue(id, 'Dimmer') === 50),
+      },
+      {
+        type: 'task',
+        title: { ko: '프로그래머 비우기', en: 'Clear the programmer' },
+        body: {
+          ko: '편집 내용을 비우려면:\n\n  Clear\n\n무대가 다시 어두워집니다. (실제 MA3 는 Clear 를 3번 누릅니다.)',
+          en: 'To empty your edits:\n\n  Clear\n\nThe stage goes dark again. (On real MA3 you press Clear three times.)',
+        },
+        hint: 'Clear',
+        check: (show) => !show.hasProgrammerValues(),
+      },
+    ],
+  },
+
+  {
+    id: 'attributes',
+    title: { ko: '2. 색·무빙 (Encoders)', en: '2. Color & Movement (Encoders)' },
+    steps: [
+      {
+        type: 'task',
+        title: { ko: '무빙 라이트 선택', en: 'Select the movers' },
+        body: { ko: '무빙헤드 11~14번을 선택:\n\n  Fixture 11 Thru 14', en: 'Select moving heads 11–14:\n\n  Fixture 11 Thru 14' },
+        hint: 'Fixture 11 Thru 14',
+        check: (show) => eqSet(sel(show), [11, 12, 13, 14]),
+      },
+      {
+        type: 'task',
+        title: { ko: '풀로 켜기', en: 'Open the dimmer' },
+        body: { ko: '빔이 보이도록 디머를 올립니다:\n\n  At Full', en: 'Raise the dimmer so beams appear:\n\n  At Full' },
+        hint: 'At Full',
+        check: (show) => [11, 12, 13, 14].every((id) => show.getProgrammerValue(id, 'Dimmer') === 100),
+      },
+      {
+        type: 'task',
+        title: { ko: '빨간색으로 만들기', en: 'Make them red' },
+        body: {
+          ko: '오른쪽 Encoder Bar 에서 [Color] 탭을 누르고, Green·Blue 인코더를 0 으로 내리세요. (Red 는 100 유지)\n\n인코더는 드래그하거나, 위/아래 화살표 버튼으로 조절합니다.',
+          en: 'On the Encoder Bar (right), open the [Color] tab and turn Green & Blue down to 0 (keep Red at 100).\n\nDrag the encoders or use the up/down arrows.',
+        },
+        hint: { ko: 'Color 탭 → Green 0, Blue 0', en: 'Color tab → Green 0, Blue 0' },
+        check: (show) => [11, 12, 13, 14].every((id) =>
+          show.getProgrammerValue(id, 'ColorRGB_G') === 0 && show.getProgrammerValue(id, 'ColorRGB_B') === 0),
+      },
+      {
+        type: 'task',
+        title: { ko: '빔 움직이기 (Pan/Tilt)', en: 'Move the beams (Pan/Tilt)' },
+        body: {
+          ko: 'Encoder Bar 의 [Position] 탭에서 Pan 또는 Tilt 인코더를 움직여 빔을 무대 위로 흩어보세요. 3D 에서 빔이 움직입니다.',
+          en: 'In the [Position] tab, move the Pan or Tilt encoder to spread the beams across the stage. Watch them move in 3D.',
+        },
+        hint: { ko: 'Position 탭 → Pan/Tilt 조절', en: 'Position tab → adjust Pan/Tilt' },
+        check: (show) => [11, 12, 13, 14].some((id) => {
+          const p = show.getProgrammerValue(id, 'Pan');
+          const t = show.getProgrammerValue(id, 'Tilt');
+          return (p !== undefined && p !== 0) || (t !== undefined && t !== 0);
+        }),
+      },
+    ],
+  },
+
+  {
+    id: 'groups-cues',
+    title: { ko: '3. 그룹과 큐 (Group & Cue)', en: '3. Groups & Cues' },
+    steps: [
+      {
+        type: 'task',
+        title: { ko: '그룹 저장', en: 'Store a group' },
+        body: {
+          ko: '자주 쓰는 묶음을 저장해두면 편합니다.\n1~10번을 선택하고 그룹 1로 저장:\n\n  Fixture 1 Thru 10\n  Store Group 1',
+          en: 'Save sets you use often.\nSelect 1–10 and store as Group 1:\n\n  Fixture 1 Thru 10\n  Store Group 1',
+        },
+        hint: 'Store Group 1',
+        check: (show) => show.groups.has(1),
+      },
+      {
+        type: 'task',
+        title: { ko: '장면 만들고 큐 저장', en: 'Build a look, store a cue' },
+        body: {
+          ko: '아무 픽스처나 켜서 장면을 만든 뒤 큐 1로 저장하세요:\n\n  (예) Group 1  At Full\n  Store Cue 1\n\n큐는 "그 순간"을 통째로 저장합니다.',
+          en: 'Build any look, then store it as Cue 1:\n\n  e.g.  Group 1  At Full\n  Store Cue 1\n\nA cue stores the whole moment.',
+        },
+        hint: 'Store Cue 1',
+        check: (show) => { const s = show.sequences.get(show.selectedSequenceId); return !!(s && s.cues.find((c) => c.no === 1)); },
+      },
+      {
+        type: 'task',
+        title: { ko: '두 번째 큐', en: 'A second cue' },
+        body: {
+          ko: '다른 장면을 만들어 Cue 2 로 저장하세요. (색이나 디머를 바꿔보세요)\n\n  Store Cue 2',
+          en: 'Make a different look and store it as Cue 2 (change color or dimmer).\n\n  Store Cue 2',
+        },
+        hint: 'Store Cue 2',
+        check: (show) => { const s = show.sequences.get(show.selectedSequenceId); return !!(s && s.cues.find((c) => c.no === 2)); },
+      },
+    ],
+  },
+
+  {
+    id: 'executor',
+    title: { ko: '4. 익스큐터 재생 (Playback)', en: '4. Executor Playback' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: '익스큐터란?', en: 'What is an executor?' },
+        body: {
+          ko: '시퀀스(큐 묶음)를 페이더+버튼에 올려 재생하는 슬롯입니다.\n하단의 Executor 201 에 Sequence 1 이 이미 올라가 있습니다.\nClear 로 프로그래머를 비우면 재생 결과가 더 잘 보입니다.',
+          en: 'A slot that puts a sequence on a fader+button for playback.\nExecutor 201 below already holds Sequence 1.\nClear the programmer to see playback more clearly.',
+        },
+        hint: 'Clear',
+      },
+      {
+        type: 'task',
+        title: { ko: 'GO!', en: 'GO!' },
+        body: {
+          ko: '하단 Executor 201 의 [Go] 버튼을 누르거나, 커맨드라인에 Go 를 입력하세요.\n첫 번째 큐가 재생됩니다.',
+          en: 'Press [Go] on Executor 201, or type Go on the command line.\nThe first cue plays.',
+        },
+        hint: 'Go Executor 201',
+        check: (show) => { const e = show.executors.get(201); return !!(e && e.on); },
+      },
+      {
+        type: 'task',
+        title: { ko: '페이더 내려보기', en: 'Pull the fader down' },
+        body: {
+          ko: 'Executor 201 의 페이더를 50% 이하로 내려보세요. 큐의 디머가 함께 줄어듭니다(페이더 = 마스터).',
+          en: 'Drag Executor 201’s fader below 50%. The cue’s dimmers scale down (the fader is a master).',
+        },
+        hint: { ko: '페이더를 아래로 드래그', en: 'Drag the fader down' },
+        check: (show) => { const e = show.executors.get(201); return !!(e && e.fader <= 50); },
+      },
+      {
+        type: 'info',
+        title: { ko: '한 사이클 완성!', en: 'One full cycle!' },
+        body: {
+          ko: '훌륭합니다! 패치 → 프로그래밍 → 큐 → 재생의 한 사이클을 익혔습니다.\n\n이제 마지막으로 타임코드(Timecode)를 배워봅시다.',
+          en: 'Great! You’ve completed one full cycle: Patch → Program → Cue → Playback.\n\nFinally, let’s learn Timecode.',
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'timecode',
+    title: { ko: '5. 타임코드 (Timecode)', en: '5. Timecode' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: '타임코드란?', en: 'What is Timecode?' },
+        body: {
+          ko: '타임코드는 "몇 초에 어떤 Go 를 실행할지"를 시간 축에 미리 적어두고 자동으로 재생하는 기능입니다.\n음악·영상과 정확히 맞춘 쇼(콘서트, 뮤지컬)에서 핵심적으로 쓰입니다.\n\n상단 [Timecode] 탭으로 이동하세요.',
+          en: 'Timecode plays a pre-written list of "fire this Go at this second" automatically.\nIt’s essential for shows tightly synced to music/video (concerts, musicals).\n\nGo to the [Timecode] tab at the top.',
+        },
+      },
+      {
+        type: 'task',
+        title: { ko: '큐 2개 이상 준비', en: 'Have at least 2 cues' },
+        body: {
+          ko: '타임코드가 넘길 큐가 필요합니다. 큐가 2개 미만이면 Live 로 돌아가 Store Cue 1, Store Cue 2 로 만들어 주세요.\n(앞 레슨에서 이미 만들었다면 통과됩니다.)',
+          en: 'Timecode needs cues to step through. If you have fewer than 2, go back to Live and Store Cue 1 and Cue 2.\n(If you made them earlier, this passes already.)',
+        },
+        hint: 'Store Cue 1 / Store Cue 2',
+        check: (show) => { const s = show.sequences.get(show.selectedSequenceId); return !!(s && s.cues.length >= 2); },
+      },
+      {
+        type: 'task',
+        title: { ko: '예제 타임코드 만들기', en: 'Create example timecode' },
+        body: {
+          ko: 'Timecode 탭에서 [예제 채우기 / Load example] 버튼을 누르세요.\n큐 개수만큼 Go 이벤트가 시간 축에 자동 배치됩니다.',
+          en: 'On the Timecode tab press [Load example].\nGo events are placed on the timeline, one per cue.',
+        },
+        hint: { ko: '예제 채우기 버튼', en: 'Load example button' },
+        check: (show) => (show.timecodeEvents || []).length >= 2,
+      },
+      {
+        type: 'task',
+        title: { ko: '▶ 재생!', en: '▶ Play!' },
+        body: {
+          ko: '▶ 버튼을 눌러 타임코드를 재생하세요. 재생 위치가 지나가며 큐가 자동으로 바뀌는 것을 보세요.\n(Live 탭에서 3D 무대를 함께 보면 더 좋습니다.)',
+          en: 'Press ▶ to play. Watch the playhead trigger cues automatically.\n(Open the Live tab to watch the 3D stage at the same time.)',
+        },
+        hint: { ko: '▶ (재생) 버튼', en: '▶ (play) button' },
+        check: (show, ctx) => !!(ctx.timecode && ctx.timecode.playing),
+      },
+      {
+        type: 'info',
+        title: { ko: '음악과 맞춰 최종 점검 🎵', en: 'Final check with music 🎵' },
+        body: {
+          ko: 'Timecode 탭의 [🎵 음악 불러오기] 로 노래 파일을 올리면, 길이가 음악에 맞춰지고 재생 위치가 음악과 동기화됩니다.\n\n곡의 박자/가사에 맞는 시간에 Go 이벤트를 배치하고 ▶ 를 누르면, 음악과 내가 만든 메모리(큐)가 함께 실행됩니다. Live 탭에서 3D 무대를 보며 타이밍이 맞는지 최종 확인하세요!',
+          en: 'On the Timecode tab use [🎵 Load music] to add a song — the length matches the music and the playhead locks to it.\n\nPlace Go events at the right musical moments and press ▶: the music and your stored memories (cues) run together. Open the Live tab to watch the 3D stage and verify the timing!',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '수료를 축하합니다 🎉', en: 'Congratulations 🎉' },
+        body: {
+          ko: '패치 → 프로그래밍 → 큐 → 익스큐터 재생 → 타임코드까지 핵심 워크플로우를 모두 익혔습니다!\n\n· 큐는 이제 fade 시간 동안 부드럽게 크로스페이드됩니다.\n· [Glossary] 용어집과 [Quiz] 로 복습하세요.\n· 쇼파일은 상단 Save 로 저장할 수 있습니다.\n\n무대감독으로서 조명팀과 소통할 기본기가 갖춰졌습니다. 화이팅!',
+          en: 'You’ve learned the whole core workflow: Patch → Program → Cue → Executor playback → Timecode!\n\n· Cues now crossfade smoothly over their fade time.\n· Review with the Glossary and Quiz.\n· Save your show with the Save button.\n\nYou now have the fundamentals to communicate with the lighting team. Good luck!',
+        },
+      },
+    ],
+  },
+
+  {
+    id: 'onpc',
+    title: { ko: '6. 실전 1:1 — grandMA3 onPC', en: '6. Go pro 1:1 — grandMA3 onPC' },
+    steps: [
+      {
+        type: 'info',
+        title: { ko: '이 시뮬레이터의 위치', en: 'Where this simulator fits' },
+        body: {
+          ko: '이 앱은 핵심 개념을 한국어로 빠르게 익히는 학습 도구입니다.\n실제 콘솔과 화면·기능·문법·쇼파일이 100% 동일한 1:1 연습은 MA Lighting 공식 무료 프로그램 grandMA3 onPC 로 합니다.',
+          en: 'This app teaches core concepts quickly in Korean.\nFor true 1:1 practice (identical screens/features/syntax/showfile) use MA Lighting’s free grandMA3 onPC.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: 'onPC 설치하기', en: 'Install onPC' },
+        body: {
+          ko: 'malighting.com → Download 에서 grandMA3 onPC 를 받아 설치하세요(Windows/macOS, 무료). 가능하면 현장 콘솔과 같은 버전을 사용합니다.\n[Tips] 탭의 "grandMA3 onPC 로 실전 1:1 연습"에 링크가 있습니다.',
+          en: 'Get grandMA3 onPC from malighting.com → Download (Windows/macOS, free). Prefer the same version as the venue console.\nLinks are in the [Tips] tab.',
+        },
+      },
+      {
+        type: 'info',
+        title: { ko: '같은 명령으로 연습', en: 'Practise with the same commands' },
+        body: {
+          ko: '여기서 배운 어순이 onPC 에서 그대로 통합니다:\n  Fixture 1 Thru 10 At Full  →  Please\n  Store Cue 1  /  Go  /  Off\n온PC 커맨드라인에 똑같이 입력해 보세요. 손에 익으면 커맨드윙/페이더윙이나 MIDI 로 하드웨어 감각까지 더합니다.',
+          en: 'The same word order works in onPC:\n  Fixture 1 Thru 10 At Full → Please\n  Store Cue 1 / Go / Off\nType them into onPC’s command line. Then add a command/fader wing or MIDI for hardware feel.',
+        },
+      },
+    ],
+  },
+];

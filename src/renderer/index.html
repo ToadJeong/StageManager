@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko" class="lang-both">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;">
+  <title>MA3 Simulator · grandMA3 학습 시뮬레이터</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 상단 바 -->
+    <header id="topbar">
+      <div class="brand">🎛️ <strong>MA3</strong><span>Simulator</span></div>
+      <nav class="view-tabs">
+        <button class="view-tab" data-view="live">Live</button>
+        <button class="view-tab" data-view="console">Console</button>
+        <button class="view-tab" data-view="presets">Presets</button>
+        <button class="view-tab" data-view="fx">FX</button>
+        <button class="view-tab" data-view="macros">Macros</button>
+        <button class="view-tab" data-view="patch">Patch</button>
+        <button class="view-tab" data-view="timecode">Timecode</button>
+        <button class="view-tab" data-view="tutorial">Tutorial</button>
+        <button class="view-tab" data-view="tips">Tips</button>
+        <button class="view-tab" data-view="glossary">Glossary</button>
+        <button class="view-tab" data-view="quiz">Quiz</button>
+      </nav>
+      <div class="top-actions">
+        <button id="btnNew" title="New show">New</button>
+        <button id="btnSave" title="Save show file">Save</button>
+        <button id="btnLoad" title="Load show file">Load</button>
+        <button id="langToggle" title="언어 / Language">한/EN</button>
+      </div>
+    </header>
+
+    <!-- 커맨드라인 -->
+    <div id="commandbar">
+      <span class="cmd-prompt">CMD&gt;</span>
+      <input id="cmdline" autocomplete="off" autocapitalize="off" spellcheck="false"
+             aria-label="command line">
+      <span id="cmdFeedback" class="cmd-feedback"></span>
+    </div>
+
+    <!-- 작업 영역 -->
+    <main id="workspace">
+      <!-- LIVE -->
+      <section id="view-live" class="view">
+        <div class="live-grid">
+          <div class="panel sheet-panel">
+            <div class="panel-title">Fixture Sheet <small>픽스처 시트</small></div>
+            <div id="fixtureSheet" class="fx-grid"></div>
+          </div>
+          <div class="panel stage-panel">
+            <div class="panel-title">3D Stage <small>무대 · 드래그=회전, 휠=줌</small>
+              <div class="stage-tools">
+                <button data-view3d="3d" class="active">3D</button>
+                <button data-view3d="top">Top</button>
+                <button data-view3d="front">Front</button>
+                <button id="themeToggle" title="Design/Stage">◐</button>
+                <button id="modelBtn" title="무대 모형 가져오기 (OBJ/glTF)">🏛 Model</button>
+                <input id="modelFile" type="file" accept=".obj,.gltf,.glb" hidden>
+              </div>
+            </div>
+            <canvas id="stage3d"></canvas>
+          </div>
+          <div class="panel enc-panel">
+            <div class="panel-title">Encoder Bar <small>인코더</small></div>
+            <div id="encoderBar"></div>
+          </div>
+        </div>
+        <div class="console-row">
+          <div class="panel exec-panel">
+            <div class="panel-title">Executors <small>익스큐터</small></div>
+            <div id="executorBar"></div>
+          </div>
+          <div class="panel keys-panel">
+            <div class="panel-title">Command Keys <small>가상 키패드</small></div>
+            <div class="keys-split">
+              <div id="hardwareKeys"></div>
+              <div id="cmdHistory" class="cmd-history"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONSOLE -->
+      <section id="view-console" class="view"></section>
+
+      <!-- PRESETS -->
+      <section id="view-presets" class="view"></section>
+
+      <!-- FX -->
+      <section id="view-fx" class="view"></section>
+
+      <!-- MACROS -->
+      <section id="view-macros" class="view"></section>
+
+      <!-- PATCH -->
+      <section id="view-patch" class="view"></section>
+
+      <!-- TIMECODE -->
+      <section id="view-timecode" class="view"></section>
+
+      <!-- TIPS -->
+      <section id="view-tips" class="view"></section>
+
+      <!-- GLOSSARY -->
+      <section id="view-glossary" class="view"></section>
+
+      <!-- QUIZ -->
+      <section id="view-quiz" class="view"></section>
+    </main>
+
+    <!-- 튜토리얼 패널 (Live/Tutorial 에서 노출) -->
+    <aside id="tutorialPanel"></aside>
+
+    <input type="file" id="fileInput" accept="application/json" hidden>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,764 @@
+/**
+ * show.js
+ * 쇼(Show)의 중앙 상태 모델 + 조작 API.
+ *
+ * grandMA3 의 핵심 객체 구조를 단순화해 보유한다:
+ *   - Patch:      Fixture( fixtureId, type, universe, address, position )
+ *   - Programmer: 현재 편집 중인 라이브 값 (선택 + 값)
+ *   - Group:      픽스처 묶음
+ *   - Sequence:   Cue 들의 목록
+ *   - Cue:        프로그래머 스냅샷
+ *   - Executor:   Sequence 를 페이더/버튼에 할당해 재생
+ *
+ * 모든 변경은 eventBus 로 통지되어 UI / 3D / 튜토리얼이 반응한다.
+ */
+import { bus, EVT } from './eventBus.js';
+import { FixtureLibrary, getAttrDef } from './fixtureLibrary.js';
+import { execContribution } from './output.js';
+
+const _now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+export class Show {
+  constructor() {
+    this.reset();
+  }
+
+  reset() {
+    /** @type {Map<number, Fixture>} fixtureId → Fixture */
+    this.fixtures = new Map();
+    /** 현재 선택된 fixtureId 배열 (순서 유지) */
+    this.selection = [];
+    /**
+     * 프로그래머: fixtureId → { attrName: value }
+     * 여기에 들어있는 값만 "active"(라이브로 출력 + 저장 대상).
+     */
+    this.programmer = new Map();
+    /** @type {Map<number, {id:number,name:string,fixtureIds:number[]}>} */
+    this.groups = new Map();
+    /** @type {Map<number, Sequence>} */
+    this.sequences = new Map();
+    /**
+     * 익스큐터 페이지: pageNo → (buttonNo → Executor).
+     * this.executors 는 항상 "현재 페이지"의 Map 을 가리킨다.
+     */
+    this.pages = new Map([[1, new Map()]]);
+    this.currentPage = 1;
+    this.executors = this.pages.get(1);
+    /**
+     * 프리셋 풀: feature(Dimmer/Position/Color/Gobo/Beam/Focus...) → (no → preset)
+     * preset = { type, no, name, values:{fixtureId:{attr:val}}, generic:{attr:val} }
+     */
+    this.presets = new Map();
+    /** 현재 Store 대상 시퀀스 (기본 1) */
+    this.selectedSequenceId = 1;
+    /** 타임코드 이벤트 목록 (영속화 대상): {id,time,buttonNo,action} */
+    this.timecodeEvents = [];
+    this.timecodeDuration = 20;
+    /** 그랜드마스터 0~100 (전체 디머 출력 마스터) */
+    this.grandMaster = 100;
+    /** 라이브 이펙트(Phaser): [{id, kind, fixtureIds}] + 전역 rate/size */
+    this.effects = [];
+    this.fxRateBPM = 60;
+    this.fxSize = 100;
+    this._nextEffectId = 1;
+    /** Blind 모드: 켜지면 프로그래머가 라이브 출력에 영향 주지 않음 */
+    this.blind = false;
+    /** 매크로: no → {no, name, commands:[]} */
+    this.macros = new Map();
+    this._recording = null;   // {no, commands:[]}
+    this._runningMacro = false;
+    this._nextFixtureId = 1;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 매크로 (Macro) — 커맨드라인 명령 녹화/재생
+  // ──────────────────────────────────────────────────────────
+
+  get recording() { return !!this._recording; }
+  get recordingNo() { return this._recording ? this._recording.no : null; }
+
+  startMacroRecord(no) {
+    this._recording = { no, commands: [] };
+    bus.emit(EVT.MACRO_CHANGED, { recording: no });
+  }
+
+  /** 앱이 COMMAND_EXECUTED 를 받아 호출 — 녹화 중이면 명령을 담는다. */
+  recordCommand(cmd) {
+    if (this._recording && !this._runningMacro && cmd) this._recording.commands.push(cmd);
+  }
+
+  stopMacroRecord(name = null) {
+    if (!this._recording) return { ok: false };
+    const { no, commands } = this._recording;
+    this.macros.set(no, { no, name: name || `Macro ${no}`, commands });
+    this._recording = null;
+    bus.emit(EVT.MACRO_CHANGED, { no });
+    return { ok: true, no, count: commands.length };
+  }
+
+  runMacro(no, execFn) {
+    const m = this.macros.get(no);
+    if (!m) return { ok: false };
+    this._runningMacro = true;
+    try { for (const cmd of m.commands) execFn(cmd); } finally { this._runningMacro = false; }
+    bus.emit(EVT.MACRO_CHANGED, { ran: no });
+    return { ok: true };
+  }
+
+  deleteMacro(no) {
+    this.macros.delete(no);
+    bus.emit(EVT.MACRO_CHANGED, { no, deleted: true });
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Copy / Move (Cue / Preset / Group)
+  // ──────────────────────────────────────────────────────────
+
+  copyCue(from, to, sequenceId = this.selectedSequenceId, move = false) {
+    const seq = this.sequences.get(sequenceId);
+    const src = seq && seq.cues.find((c) => c.no === from);
+    if (!src) return { ok: false };
+    this.pushUndo();
+    const clone = JSON.parse(JSON.stringify(src));
+    clone.no = to;
+    clone.name = src.name && !/^Cue /.test(src.name) ? src.name : `Cue ${to}`;
+    seq.cues = seq.cues.filter((c) => c.no !== to);
+    seq.cues.push(clone);
+    seq.cues.sort((a, b) => a.no - b.no);
+    if (move) seq.cues = seq.cues.filter((c) => c.no !== from);
+    bus.emit(EVT.CUE_STORED, { sequenceId, cueNo: to });
+    this._emitOutput();
+    return { ok: true };
+  }
+
+  copyPreset(type, from, to, move = false) {
+    const pool = this.presets.get(type);
+    const src = pool && pool.get(from);
+    if (!src) return { ok: false };
+    this.pushUndo();
+    const clone = JSON.parse(JSON.stringify(src));
+    clone.no = to;
+    clone.name = src.name && !new RegExp(`^${type} `).test(src.name) ? src.name : `${type} ${to}`;
+    pool.set(to, clone);
+    if (move) pool.delete(from);
+    bus.emit(EVT.PRESET_CHANGED, { type, no: to });
+    return { ok: true };
+  }
+
+  copyGroup(from, to, move = false) {
+    const src = this.groups.get(from);
+    if (!src) return { ok: false };
+    this.pushUndo();
+    this.groups.set(to, { id: to, name: src.name && !/^Group /.test(src.name) ? src.name : `Group ${to}`, fixtureIds: [...src.fixtureIds] });
+    if (move) this.groups.delete(from);
+    bus.emit(EVT.GROUP_CHANGED, { id: to });
+    return { ok: true };
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Goto — 특정 큐로 점프
+  // ──────────────────────────────────────────────────────────
+
+  execGoto(buttonNo, cueNo) {
+    const exec = this.executors.get(buttonNo);
+    if (!exec) return { ok: false };
+    const seq = this.sequences.get(exec.sequenceId);
+    if (!seq) return { ok: false };
+    const idx = seq.cues.findIndex((c) => c.no === cueNo);
+    if (idx < 0) return { ok: false };
+    exec.fadeFrom = exec.on ? (execContribution(this, exec, _now()) || {}) : {};
+    exec.on = true;
+    exec.cueIndex = idx;
+    const cue = seq.cues[idx];
+    exec.fadeStart = _now();
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
+    bus.emit(EVT.CUE_FIRED, { buttonNo, cueIndex: idx });
+    bus.emit(EVT.EXEC_CHANGED, { buttonNo });
+    this._emitOutput();
+    return { ok: true };
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 이펙트 (Phaser)
+  // ──────────────────────────────────────────────────────────
+
+  addEffect(kind, ids = this.selection) {
+    if (!ids.length) return { ok: false, empty: true };
+    this.pushUndo();
+    this.effects.push({ id: this._nextEffectId++, kind, fixtureIds: [...ids] });
+    bus.emit(EVT.EXEC_CHANGED, { effect: true });
+    this._emitOutput();
+    return { ok: true };
+  }
+
+  setFxRate(bpm) { this.fxRateBPM = Math.max(1, Math.min(600, bpm)); this._emitOutput(); }
+  setFxSize(sz) { this.fxSize = Math.max(0, Math.min(100, sz)); this._emitOutput(); }
+
+  stopAllEffects() {
+    this.effects = [];
+    bus.emit(EVT.EXEC_CHANGED, { effect: true });
+    this._emitOutput();
+  }
+
+  removeEffect(id) {
+    this.effects = this.effects.filter((e) => e.id !== id);
+    bus.emit(EVT.EXEC_CHANGED, { effect: true });
+    this._emitOutput();
+  }
+
+  hasActiveEffects() {
+    if (this.effects.length) return true;
+    for (const ex of this.executors.values()) {
+      if (ex.on && ex.cueIndex >= 0) {
+        const seq = this.sequences.get(ex.sequenceId);
+        const cue = seq && seq.cues[ex.cueIndex];
+        if (cue && cue.effects && cue.effects.length) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Blind 토글. */
+  setBlind(on) {
+    this.blind = !!on;
+    bus.emit(EVT.EXEC_CHANGED, { blind: this.blind });
+    this._emitOutput();
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 익스큐터 페이지 (Page)
+  // ──────────────────────────────────────────────────────────
+
+  changePage(pageNo) {
+    pageNo = Math.max(1, Math.round(pageNo));
+    if (!this.pages.has(pageNo)) this.pages.set(pageNo, new Map());
+    this.currentPage = pageNo;
+    this.executors = this.pages.get(pageNo);
+    bus.emit(EVT.EXEC_CHANGED, { page: pageNo });
+    this._emitOutput();
+  }
+
+  pageNext() { this.changePage(this.currentPage + 1); }
+  pagePrev() { if (this.currentPage > 1) this.changePage(this.currentPage - 1); }
+
+  // ──────────────────────────────────────────────────────────
+  // 프리셋 (Preset)
+  // ──────────────────────────────────────────────────────────
+
+  _ensurePool(type) {
+    if (!this.presets.has(type)) this.presets.set(type, new Map());
+    return this.presets.get(type);
+  }
+
+  /** 프로그래머에서 해당 feature 의 어트리뷰트만 모아 프리셋으로 저장. */
+  storePreset(type, no, name = null) {
+    const values = {};
+    let generic = null;
+    for (const [fid, attrs] of this.programmer.entries()) {
+      const fx = this.fixtures.get(fid);
+      if (!fx) continue;
+      const picked = {};
+      for (const attrName in attrs) {
+        const def = getAttrDef(fx.type, attrName);
+        if (def && def.feature === type) picked[attrName] = attrs[attrName];
+      }
+      if (Object.keys(picked).length) {
+        values[fid] = picked;
+        if (!generic) generic = { ...picked };
+      }
+    }
+    if (!generic) return { ok: false, empty: true };
+    const pool = this._ensurePool(type);
+    pool.set(no, { type, no, name: name || `${type} ${no}`, values, generic });
+    bus.emit(EVT.PRESET_CHANGED, { type, no });
+    return { ok: true };
+  }
+
+  getPreset(type, no) {
+    const pool = this.presets.get(type);
+    return pool ? pool.get(no) : null;
+  }
+
+  deletePreset(type, no) {
+    const pool = this.presets.get(type);
+    if (pool) pool.delete(no);
+    bus.emit(EVT.PRESET_CHANGED, { type, no, deleted: true });
+  }
+
+  /** 프리셋을 선택 픽스처에 적용(프로그래머에 기록). */
+  recallPreset(type, no, ids = this.selection) {
+    const preset = this.getPreset(type, no);
+    if (!preset || !ids.length) return { ok: false };
+    this.pushUndo();
+    for (const id of ids) {
+      const fx = this.fixtures.get(id);
+      if (!fx) continue;
+      const src = preset.values[id] || preset.generic;
+      for (const attrName in src) {
+        if (getAttrDef(fx.type, attrName)) this.setProgrammerAttr(attrName, src[attrName], [id]);
+      }
+    }
+    return { ok: true };
+  }
+
+  /** 그랜드마스터 설정(전체 디머 스케일). */
+  setGrandMaster(v) {
+    this.grandMaster = Math.max(0, Math.min(100, v));
+    bus.emit(EVT.EXEC_CHANGED, { grandMaster: true });
+    this._emitOutput();
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 패치 (Patch)
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * 픽스처 추가.
+   * @param {Object} opts
+   * @param {number} [opts.fixtureId]
+   * @param {string} opts.type           FixtureLibrary 키
+   * @param {number} opts.universe
+   * @param {number} opts.address
+   * @param {string} [opts.name]
+   * @param {{x:number,y:number,z:number}} [opts.position]
+   */
+  patchFixture(opts) {
+    const type = FixtureLibrary[opts.type];
+    if (!type) throw new Error(`Unknown fixture type: ${opts.type}`);
+    const fixtureId = opts.fixtureId ?? this._nextFixtureId;
+    this._nextFixtureId = Math.max(this._nextFixtureId, fixtureId + 1);
+
+    const fixture = {
+      fixtureId,
+      type: opts.type,
+      name: opts.name || `${type.short} ${fixtureId}`,
+      universe: opts.universe ?? 1,
+      address: opts.address ?? 1,
+      position: opts.position || { x: 0, y: 5, z: 0 },
+    };
+    this.fixtures.set(fixtureId, fixture);
+    bus.emit(EVT.PATCH_CHANGED, { fixtureId });
+    return fixture;
+  }
+
+  unpatchFixture(fixtureId) {
+    this.fixtures.delete(fixtureId);
+    this.programmer.delete(fixtureId);
+    this.selection = this.selection.filter((id) => id !== fixtureId);
+    bus.emit(EVT.PATCH_CHANGED, { fixtureId });
+  }
+
+  getFixture(id) {
+    return this.fixtures.get(id);
+  }
+
+  /** universe/address 충돌(겹침) 검사 — 패치 뷰에서 경고용. */
+  addressConflicts(universe, address, footprint, ignoreFixtureId = null) {
+    const start = address;
+    const end = address + footprint - 1;
+    for (const f of this.fixtures.values()) {
+      if (f.fixtureId === ignoreFixtureId) continue;
+      if (f.universe !== universe) continue;
+      const fType = FixtureLibrary[f.type];
+      const fStart = f.address;
+      const fEnd = f.address + fType.footprint - 1;
+      if (start <= fEnd && end >= fStart) return f.fixtureId;
+    }
+    return null;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 선택 (Selection)
+  // ──────────────────────────────────────────────────────────
+
+  setSelection(ids) {
+    // 존재하는 픽스처만, 중복 제거
+    const seen = new Set();
+    this.selection = ids.filter((id) => {
+      if (!this.fixtures.has(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    bus.emit(EVT.SELECTION_CHANGED, { selection: this.selection });
+  }
+
+  addToSelection(ids) {
+    this.setSelection([...this.selection, ...ids]);
+  }
+
+  removeFromSelection(ids) {
+    const rem = new Set(ids);
+    this.setSelection(this.selection.filter((id) => !rem.has(id)));
+  }
+
+  clearSelection() {
+    this.setSelection([]);
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 프로그래머 (Programmer)
+  // ──────────────────────────────────────────────────────────
+
+  /** 선택된 픽스처들의 어트리뷰트 값을 프로그래머에 기록. */
+  setProgrammerAttr(attrName, value, ids = this.selection) {
+    for (const id of ids) {
+      const fx = this.fixtures.get(id);
+      if (!fx) continue;
+      const def = getAttrDef(fx.type, attrName);
+      if (!def) continue; // 이 픽스처 타입엔 없는 어트리뷰트
+      const clamped = Math.max(def.min, Math.min(def.max, value));
+      if (!this.programmer.has(id)) this.programmer.set(id, {});
+      this.programmer.get(id)[attrName] = clamped;
+    }
+    bus.emit(EVT.PROGRAMMER_CHANGED, { attrName });
+    this._emitOutput();
+  }
+
+  /** "At" 명령 — 선택 픽스처의 Dimmer 설정 (퍼센트). */
+  setDimmer(value, ids = this.selection) {
+    this.setProgrammerAttr('Dimmer', value, ids);
+  }
+
+  /** 프로그래머의 한 픽스처/어트리뷰트의 현재 값 (없으면 undefined). */
+  getProgrammerValue(fixtureId, attrName) {
+    const m = this.programmer.get(fixtureId);
+    return m ? m[attrName] : undefined;
+  }
+
+  /** Clear — 프로그래머 비우기. MA3 의 Clear Clear Clear 를 단순화. */
+  clearProgrammer() {
+    this.programmer.clear();
+    bus.emit(EVT.PROGRAMMER_CHANGED, { cleared: true });
+    this._emitOutput();
+  }
+
+  /** 프로그래머에 값이 있는지 */
+  hasProgrammerValues() {
+    for (const m of this.programmer.values()) {
+      if (Object.keys(m).length) return true;
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 그룹 (Group)
+  // ──────────────────────────────────────────────────────────
+
+  storeGroup(id, name = null) {
+    if (!this.selection.length) return null;
+    const group = {
+      id,
+      name: name || `Group ${id}`,
+      fixtureIds: [...this.selection],
+    };
+    this.groups.set(id, group);
+    bus.emit(EVT.GROUP_CHANGED, { id });
+    return group;
+  }
+
+  selectGroup(id) {
+    const g = this.groups.get(id);
+    if (g) this.setSelection([...g.fixtureIds]);
+    return g;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 시퀀스 / 큐 (Sequence / Cue)
+  // ──────────────────────────────────────────────────────────
+
+  ensureSequence(id, name = null) {
+    if (!this.sequences.has(id)) {
+      this.sequences.set(id, {
+        id,
+        name: name || `Sequence ${id}`,
+        cues: [],
+      });
+    }
+    return this.sequences.get(id);
+  }
+
+  /**
+   * 프로그래머 내용을 Cue 로 저장(Store).
+   * @param {number} cueNo
+   * @param {number} [sequenceId]
+   * @param {Object} [opts] { name, fade, merge }
+   */
+  storeCue(cueNo, sequenceId = this.selectedSequenceId, opts = {}) {
+    const seq = this.ensureSequence(sequenceId);
+    // 프로그래머 스냅샷
+    const values = {};
+    for (const [fid, attrs] of this.programmer.entries()) {
+      if (!Object.keys(attrs).length) continue;
+      values[fid] = { ...attrs };
+    }
+
+    let cue = seq.cues.find((c) => c.no === cueNo);
+    // 실행 중인 라이브 이펙트를 큐에 함께 저장(현재 rate/size 고정)
+    const fxSnapshot = this.effects.map((e) => ({ kind: e.kind, fixtureIds: [...e.fixtureIds], rateBPM: this.fxRateBPM, size: this.fxSize }));
+    if (cue && opts.merge) {
+      // Merge: 기존 + 프로그래머
+      for (const fid in values) {
+        cue.values[fid] = { ...(cue.values[fid] || {}), ...values[fid] };
+      }
+      if (fxSnapshot.length) cue.effects = [...(cue.effects || []), ...fxSnapshot];
+    } else if (cue) {
+      cue.values = values; // 덮어쓰기
+      cue.effects = fxSnapshot;
+    } else {
+      cue = {
+        no: cueNo,
+        name: opts.name || `Cue ${cueNo}`,
+        fade: opts.fade ?? 3,
+        values,
+        effects: fxSnapshot,
+      };
+      seq.cues.push(cue);
+      seq.cues.sort((a, b) => a.no - b.no);
+    }
+    bus.emit(EVT.CUE_STORED, { sequenceId, cueNo });
+    return cue;
+  }
+
+  deleteCue(cueNo, sequenceId = this.selectedSequenceId) {
+    const seq = this.sequences.get(sequenceId);
+    if (!seq) return;
+    seq.cues = seq.cues.filter((c) => c.no !== cueNo);
+    bus.emit(EVT.CUE_STORED, { sequenceId, cueNo, deleted: true });
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 익스큐터 (Executor)  — 페이더 + Go/Off 버튼
+  // ──────────────────────────────────────────────────────────
+
+  assignExecutor(buttonNo, sequenceId) {
+    this.ensureSequence(sequenceId);
+    const exec = this.executors.get(buttonNo) || {
+      buttonNo,
+      sequenceId,
+      fader: 100, // 페이더 0~100 (%)
+      cueIndex: -1, // 아직 Go 안함
+      on: false,
+      fadeFrom: {}, // 페이드 시작 시점의 기여값 스냅샷
+      fadeStart: 0,
+      fadeDur: 0, // 초
+    };
+    exec.sequenceId = sequenceId;
+    this.executors.set(buttonNo, exec);
+    bus.emit(EVT.EXEC_CHANGED, { buttonNo });
+    return exec;
+  }
+
+  setFader(buttonNo, level) {
+    const exec = this.executors.get(buttonNo);
+    if (!exec) return;
+    exec.fader = Math.max(0, Math.min(100, level));
+    bus.emit(EVT.EXEC_CHANGED, { buttonNo });
+    this._emitOutput();
+  }
+
+  /** 현재 화면에 보이는 익스큐터 기여값을 페이드 시작점으로 스냅샷. */
+  _startFade(exec, cue) {
+    const now = _now();
+    exec.fadeFrom = execContribution(this, exec, now) || {};
+    exec.fadeStart = now;
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
+  }
+
+  /** Go — 다음 큐로 진행(크로스페이드). */
+  execGo(buttonNo) {
+    const exec = this.executors.get(buttonNo);
+    if (!exec) return;
+    const seq = this.sequences.get(exec.sequenceId);
+    if (!seq || !seq.cues.length) return;
+    const wasOn = exec.on;
+    exec.on = true;
+    if (!wasOn) exec.fadeFrom = {}; // OFF 에서 시작하면 0 에서 페이드 업
+    else exec.fadeFrom = execContribution(this, exec, _now()) || {};
+    exec.cueIndex = (exec.cueIndex + 1) % seq.cues.length;
+    const cue = seq.cues[exec.cueIndex];
+    exec.fadeStart = _now();
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
+    bus.emit(EVT.CUE_FIRED, { buttonNo, cueIndex: exec.cueIndex });
+    bus.emit(EVT.EXEC_CHANGED, { buttonNo });
+    this._emitOutput();
+  }
+
+  execGoBack(buttonNo) {
+    const exec = this.executors.get(buttonNo);
+    if (!exec) return;
+    const seq = this.sequences.get(exec.sequenceId);
+    if (!seq || !seq.cues.length) return;
+    exec.fadeFrom = exec.on ? (execContribution(this, exec, _now()) || {}) : {};
+    exec.on = true;
+    exec.cueIndex = (exec.cueIndex - 1 + seq.cues.length) % seq.cues.length;
+    const cue = seq.cues[exec.cueIndex];
+    exec.fadeStart = _now();
+    exec.fadeDur = cue ? (cue.fade ?? 3) : 0;
+    bus.emit(EVT.CUE_FIRED, { buttonNo, cueIndex: exec.cueIndex });
+    bus.emit(EVT.EXEC_CHANGED, { buttonNo });
+    this._emitOutput();
+  }
+
+  /** Off — 익스큐터 정지/해제. */
+  execOff(buttonNo) {
+    const exec = this.executors.get(buttonNo);
+    if (!exec) return;
+    exec.on = false;
+    exec.cueIndex = -1;
+    exec.fadeFrom = {};
+    exec.fadeDur = 0;
+    bus.emit(EVT.EXEC_CHANGED, { buttonNo });
+    this._emitOutput();
+  }
+
+  /** 진행 중인 페이드가 하나라도 있으면 true (애니메이션 루프 게이트용). */
+  anyFading(now = _now()) {
+    for (const exec of this.executors.values()) {
+      if (exec.on && exec.fadeDur > 0 && (now - exec.fadeStart) < exec.fadeDur * 1000) return true;
+    }
+    return false;
+  }
+
+  getActiveCue(buttonNo) {
+    const exec = this.executors.get(buttonNo);
+    if (!exec || !exec.on || exec.cueIndex < 0) return null;
+    const seq = this.sequences.get(exec.sequenceId);
+    if (!seq) return null;
+    return seq.cues[exec.cueIndex] || null;
+  }
+
+  _emitOutput() {
+    bus.emit(EVT.OUTPUT_CHANGED, {});
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 직렬화 (쇼파일 저장/불러오기)
+  // ──────────────────────────────────────────────────────────
+
+  toJSON() {
+    return {
+      version: 1,
+      app: 'ma3-simulator',
+      fixtures: [...this.fixtures.values()],
+      groups: [...this.groups.values()],
+      sequences: [...this.sequences.values()],
+      pages: [...this.pages.entries()].map(([p, m]) => [p, [...m.values()]]),
+      currentPage: this.currentPage,
+      presets: [...this.presets.entries()].map(([t, m]) => [t, [...m.values()]]),
+      macros: [...this.macros.values()],
+      selectedSequenceId: this.selectedSequenceId,
+      timecodeEvents: this.timecodeEvents,
+      timecodeDuration: this.timecodeDuration,
+      grandMaster: this.grandMaster,
+    };
+  }
+
+  _applyData(data) {
+    this.reset();
+    (data.fixtures || []).forEach((f) => {
+      this.fixtures.set(f.fixtureId, f);
+      this._nextFixtureId = Math.max(this._nextFixtureId, f.fixtureId + 1);
+    });
+    (data.groups || []).forEach((g) => this.groups.set(g.id, g));
+    (data.sequences || []).forEach((s) => this.sequences.set(s.id, s));
+    // 페이지(구버전 호환: executors 평면 배열이면 1페이지로)
+    this.pages = new Map();
+    if (data.pages) {
+      for (const [p, list] of data.pages) {
+        const m = new Map(); (list || []).forEach((e) => m.set(e.buttonNo, e)); this.pages.set(Number(p), m);
+      }
+    } else if (data.executors) {
+      const m = new Map(); data.executors.forEach((e) => m.set(e.buttonNo, e)); this.pages.set(1, m);
+    }
+    if (!this.pages.size) this.pages.set(1, new Map());
+    this.currentPage = data.currentPage || 1;
+    if (!this.pages.has(this.currentPage)) this.pages.set(this.currentPage, new Map());
+    this.executors = this.pages.get(this.currentPage);
+    // 프리셋
+    this.presets = new Map();
+    (data.presets || []).forEach(([t, list]) => {
+      const m = new Map(); (list || []).forEach((p) => m.set(p.no, p)); this.presets.set(t, m);
+    });
+    this.macros = new Map();
+    (data.macros || []).forEach((m) => this.macros.set(m.no, m));
+    this.selectedSequenceId = data.selectedSequenceId || 1;
+    this.timecodeEvents = data.timecodeEvents || [];
+    this.timecodeDuration = data.timecodeDuration || 20;
+    this.grandMaster = data.grandMaster ?? 100;
+  }
+
+  loadJSON(data) {
+    this._applyData(data);
+    bus.emit(EVT.SHOW_LOADED, {});
+    bus.emit(EVT.PATCH_CHANGED, {});
+    this._emitOutput();
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Undo (Oops) — 동작 단위 스냅샷
+  // ──────────────────────────────────────────────────────────
+
+  /** 변경 직전 상태를 되돌리기 스택에 저장(프로그래머/선택 포함). */
+  pushUndo() {
+    if (!this._undo) this._undo = [];
+    this._undo.push(JSON.stringify({
+      data: this.toJSON(),
+      programmer: [...this.programmer.entries()].map(([id, a]) => [id, { ...a }]),
+      selection: [...this.selection],
+      effects: this.effects.map((e) => ({ ...e, fixtureIds: [...e.fixtureIds] })),
+      blind: this.blind,
+      fxRateBPM: this.fxRateBPM, fxSize: this.fxSize,
+    }));
+    if (this._undo.length > 40) this._undo.shift();
+  }
+
+  /** Oops — 직전 동작 되돌리기. (패치 위치·큐·프로그래머·선택 복원, SHOW_LOADED 없이) */
+  undo() {
+    if (!this._undo || !this._undo.length) return false;
+    const snap = JSON.parse(this._undo.pop());
+    this._applyData(snap.data);
+    this.programmer = new Map((snap.programmer || []).map(([id, a]) => [id, { ...a }]));
+    this.selection = (snap.selection || []).filter((id) => this.fixtures.has(id));
+    this.effects = (snap.effects || []).map((e) => ({ ...e, fixtureIds: [...e.fixtureIds] }));
+    this.blind = !!snap.blind;
+    if (snap.fxRateBPM != null) this.fxRateBPM = snap.fxRateBPM;
+    if (snap.fxSize != null) this.fxSize = snap.fxSize;
+    bus.emit(EVT.PATCH_CHANGED, {});
+    bus.emit(EVT.SELECTION_CHANGED, { selection: this.selection });
+    bus.emit(EVT.PROGRAMMER_CHANGED, {});
+    bus.emit(EVT.EXEC_CHANGED, {});
+    bus.emit(EVT.CUE_STORED, {});
+    this._emitOutput();
+    return true;
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // Update — 재생 중(또는 마지막) 큐에 프로그래머 병합
+  // ──────────────────────────────────────────────────────────
+
+  updateActiveCue() {
+    // 재생 중인 익스큐터의 활성 큐 우선, 없으면 선택 시퀀스의 마지막 큐
+    let target = null;
+    for (const ex of [...this.executors.values()].sort((a, b) => a.buttonNo - b.buttonNo)) {
+      if (ex.on && ex.cueIndex >= 0) {
+        const seq = this.sequences.get(ex.sequenceId);
+        const cue = seq && seq.cues[ex.cueIndex];
+        if (cue) { target = { seq, cue }; break; }
+      }
+    }
+    if (!target) {
+      const seq = this.sequences.get(this.selectedSequenceId);
+      if (seq && seq.cues.length) target = { seq, cue: seq.cues[seq.cues.length - 1] };
+    }
+    if (!target) return { ok: false };
+    if (!this.hasProgrammerValues()) return { ok: false, empty: true };
+    this.pushUndo();
+    for (const [fid, attrs] of this.programmer.entries()) {
+      if (!Object.keys(attrs).length) continue;
+      target.cue.values[fid] = { ...(target.cue.values[fid] || {}), ...attrs };
+    }
+    bus.emit(EVT.CUE_STORED, { sequenceId: target.seq.id, cueNo: target.cue.no });
+    this._emitOutput();
+    return { ok: true, cueNo: target.cue.no, seqId: target.seq.id };
+  }
+}
